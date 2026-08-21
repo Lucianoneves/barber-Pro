@@ -1,0 +1,24 @@
+---
+description: Conventional Commits sempre em português
+alwaysApply: true
+---
+
+# Commits
+
+Sempre use [Conventional Commits](https://www.conventionalcommits.org/) com a descrição em **português**.
+
+Formato: `<tipo>: <descrição>`
+
+Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+
+Regras:
+
+- Descrição em português, no imperativo, sem ponto final
+- Tipos em inglês (padrão Conventional Commits)
+- Máximo de 100 caracteres no cabeçalho
+
+Exemplos:
+
+- `feat: adiciona autenticação de usuário`
+- `fix: corrige validação do token JWT`
+- `chore: configura hooks de pre-commit com husky`
