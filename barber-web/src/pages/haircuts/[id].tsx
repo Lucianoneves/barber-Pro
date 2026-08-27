@@ -167,6 +167,7 @@ export default function EditHaircut({
                 mb={3}
                 size="lg"
                 type="text"
+                inputMode="decimal"
                 w="100%"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}

@@ -393,6 +393,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 w="85%"
                 mb={3}
                 size="lg"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
                 bg="barber.900"
                 color="white"
                 borderColor="gray.700"

@@ -122,6 +122,7 @@ export default function NewHaircut({ subscription, count }: NewHaircutProps) {
               placeholder="Valor do corte"
               size="lg"
               type="text"
+              inputMode="decimal"
               w="85%"
               bg="gray.900"
               mb={4}
