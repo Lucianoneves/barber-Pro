@@ -14,6 +14,14 @@ import { BookingCalendar } from "@/src/components/bookingCalendar";
 import { setupAPIClient } from "@/src/services/api";
 import { GetServerSideProps } from "next";
 import { AxiosError } from "axios";
+import {
+  addShopDays,
+  formatShopDateTime,
+  formatShopTime,
+  shopTodayInput,
+  shopWeekday,
+  toShopDateInput,
+} from "@/src/utils/shopTime";
 
 interface HaircutItem {
   id: string;
@@ -63,31 +71,24 @@ const WEEKDAYS = [
 ];
 
 function todayInput() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+  return shopTodayInput();
 }
 
 function nextOpenDate(closedWeekdays: number[]) {
+  const today = shopTodayInput();
+
   for (let offset = 0; offset < 14; offset += 1) {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    if (!closedWeekdays.includes(date.getDay())) {
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${date.getFullYear()}-${month}-${day}`;
+    const date = addShopDays(today, offset);
+    if (!closedWeekdays.includes(shopWeekday(date))) {
+      return date;
     }
   }
 
-  return todayInput();
+  return today;
 }
 
 function toDateInput(value: string) {
-  const date = new Date(value);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
+  return toShopDateInput(value);
 }
 
 function slotTime(value: string) {
@@ -97,20 +98,11 @@ function slotTime(value: string) {
 }
 
 function formatSlot(value: string) {
-  return new Date(value).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShopTime(value);
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShopDateTime(value);
 }
 
 function formatPrice(value: number) {
@@ -540,9 +532,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 Horários
               </Text>
               <Text w="85%" mb={2} color="gray.400" fontSize="sm">
-                Intervalo de {shop.slot_interval_minutes} min. Um horário
-                ocupado não pode ser usado por outro cliente nem por outro tipo
-                de corte.
+                Intervalo de {shop.slot_interval_minutes} min, no horário de
+                Brasília. Um horário ocupado não pode ser usado por outro
+                cliente nem por outro tipo de corte.
               </Text>
               <Flex w="85%" mb={3} gap={4} wrap="wrap" align="center">
                 <Flex align="center" gap={2}>

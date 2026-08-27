@@ -1,32 +1,51 @@
 export const ALLOWED_INTERVALS = [15, 20, 30, 45, 60];
+export const SHOP_TIMEZONE = "America/Sao_Paulo";
+const SHOP_OFFSET = "-03:00";
 
 export function isValidDateInput(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-export function isValidHourInput(value?: string | null) {
+export function normalizeHourInput(value?: string | null) {
   if (!value) {
-    return false;
+    return null;
   }
 
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const match = String(value).trim().match(/^([01]\d|2[0-3]):([0-5]\d)/);
+
+  if (!match) {
+    return null;
+  }
+
+  return `${match[1]}:${match[2]}`;
+}
+
+export function isValidHourInput(value?: string | null) {
+  return Boolean(normalizeHourInput(value));
+}
+
+export function dateFromShopLocal(date: string, time = "00:00") {
+  const hour = normalizeHourInput(time) || "00:00";
+  return new Date(`${date}T${hour}:00${SHOP_OFFSET}`);
 }
 
 export function toLocalDateInput(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: SHOP_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
 }
 
 export function weekdayFromDate(date: string) {
-  return new Date(`${date}T12:00:00`).getDay();
+  return dateFromShopLocal(date, "12:00").getUTCDay();
 }
 
 export function dayRange(date: string) {
   return {
-    start: new Date(`${date}T00:00:00`),
-    end: new Date(`${date}T23:59:59.999`),
+    start: dateFromShopLocal(date, "00:00"),
+    end: new Date(dateFromShopLocal(date, "23:59").getTime() + 59 * 1000 + 999),
   };
 }
 
@@ -53,14 +72,14 @@ export function buildDaySlots({
   occupied: Date[];
   now?: Date;
 }) {
-  const open = new Date(`${date}T${opens_at}:00`);
-  const close = new Date(`${date}T${closes_at}:00`);
+  const open = dateFromShopLocal(date, opens_at);
+  const close = dateFromShopLocal(date, closes_at);
   const slots: { at: Date; status: SlotStatus }[] = [];
   const step = interval * 60 * 1000;
 
   let current = normalizeSlotDate(open);
 
-  while (current.getTime() + step <= close.getTime()) {
+  while (current.getTime() <= close.getTime()) {
     const isOccupied = occupiesSlotWindow(current, occupied, interval);
     const isPast = current.getTime() <= now.getTime();
     const status: SlotStatus = isPast

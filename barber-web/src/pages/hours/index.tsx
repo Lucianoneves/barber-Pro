@@ -92,7 +92,8 @@ export default function Hours({
             Horário de funcionamento
           </Heading>
           <Text mb={6} color="gray.400">
-            O cliente só vê horários livres neste expediente.
+            Os horários seguem o fuso de Brasília. O cliente vê a grade até o
+            fechamento, de acordo com o intervalo entre cortes.
           </Text>
 
           <Flex
@@ -172,7 +173,9 @@ export default function Hours({
                     value={item.opens_at || ""}
                     isDisabled={item.closed}
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      updateDay(item.weekday, { opens_at: e.target.value })
+                      updateDay(item.weekday, {
+                        opens_at: e.target.value.slice(0, 5),
+                      })
                     }
                   />
                   <Input
@@ -183,7 +186,9 @@ export default function Hours({
                     value={item.closes_at || ""}
                     isDisabled={item.closed}
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      updateDay(item.weekday, { closes_at: e.target.value })
+                      updateDay(item.weekday, {
+                        closes_at: e.target.value.slice(0, 5),
+                      })
                     }
                   />
                 </Flex>

@@ -1,8 +1,5 @@
 import prismaClient from "../../prisma";
-import {
-  ALLOWED_INTERVALS,
-  isValidHourInput,
-} from "../../utils/scheduleSlots";
+import { ALLOWED_INTERVALS, normalizeHourInput } from "../../utils/scheduleSlots";
 
 interface HourInput {
   weekday: number;
@@ -43,11 +40,14 @@ class UpdateBusinessHoursService {
         continue;
       }
 
-      if (!isValidHourInput(hour.opens_at) || !isValidHourInput(hour.closes_at)) {
+      const opens_at = normalizeHourInput(hour.opens_at);
+      const closes_at = normalizeHourInput(hour.closes_at);
+
+      if (!opens_at || !closes_at) {
         throw new Error("Informe a abertura e o fechamento no formato HH:mm");
       }
 
-      if ((hour.opens_at as string) >= (hour.closes_at as string)) {
+      if (opens_at >= closes_at) {
         throw new Error("O horário de abertura deve ser antes do fechamento");
       }
     }
@@ -72,15 +72,15 @@ class UpdateBusinessHoursService {
           },
           update: {
             closed: Boolean(hour.closed),
-            opens_at: hour.closed ? null : hour.opens_at,
-            closes_at: hour.closed ? null : hour.closes_at,
+            opens_at: hour.closed ? null : normalizeHourInput(hour.opens_at),
+            closes_at: hour.closed ? null : normalizeHourInput(hour.closes_at),
           },
           create: {
             user_id,
             weekday: Number(hour.weekday),
             closed: Boolean(hour.closed),
-            opens_at: hour.closed ? null : hour.opens_at,
-            closes_at: hour.closed ? null : hour.closes_at,
+            opens_at: hour.closed ? null : normalizeHourInput(hour.opens_at),
+            closes_at: hour.closed ? null : normalizeHourInput(hour.closes_at),
           },
         });
       }

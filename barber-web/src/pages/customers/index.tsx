@@ -4,6 +4,7 @@ import { IoMdPerson } from "react-icons/io";
 import { Sidebar } from "@/src/components/sidebar";
 import { canSSRAuth } from "@/src/services/utils/canSSRAuth";
 import { setupAPIClient } from "@/src/services/api";
+import { formatShopDateTime } from "@/src/utils/shopTime";
 
 interface CustomerItem {
   id: string;
@@ -74,15 +75,9 @@ export default function Customers({ customers }: CustomersProps) {
               </Flex>
               <Text color="gray.300">
                 {item.last_schedule
-                  ? `${item.last_schedule.haircut.name} - ${new Date(
+                  ? `${item.last_schedule.haircut.name} - ${formatShopDateTime(
                       item.last_schedule.scheduled_at
-                    ).toLocaleString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
+                    )}`
                   : "Sem agendamento"}
               </Text>
             </Flex>

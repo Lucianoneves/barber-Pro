@@ -6,6 +6,7 @@ import { canSSRAuth } from "@/src/services/utils/canSSRAuth";
 import { setupAPIClient } from "@/src/services/api";
 import { useRouter } from "next/router";
 import { AxiosError } from "axios";
+import { formatShopTime, shopTodayInput } from "@/src/utils/shopTime";
 
 interface HaircutProps {
   id: string;
@@ -19,17 +20,11 @@ interface NewProps {
 }
 
 function todayInput() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+  return shopTodayInput();
 }
 
 function formatSlot(value: string) {
-  return new Date(value).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShopTime(value);
 }
 
 function getApiError(error: unknown, fallback: string) {
