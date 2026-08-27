@@ -1,39 +1,49 @@
 import { Prisma } from "@prisma/client";
 import prismaClient from "../../prisma";
 import { EnsureCustomerService } from "../customer/EnsureCustomerService";
-import { ListAvailableSlotsService } from "./ListAvailableSlotsService";
+import { ListAvailableSlotsService } from "../schedule/ListAvailableSlotsService";
+import { isValidPhone, normalizePhone } from "../../utils/phone";
 import {
   isSameSlot,
   normalizeSlotDate,
   toLocalDateInput,
 } from "../../utils/scheduleSlots";
 
-interface NewScheduleRequest {
-  user_id: string;
-  haircut_id: string;
-  customer: string;
+interface UpdatePublicScheduleRequest {
+  slug: string;
   phone: string;
+  customer: string;
+  schedule_id: string;
+  haircut_id: string;
   scheduled_at: string;
-  source?: string;
-  ignore_schedule_id?: string;
 }
 
-class NewScheduleService {
+class UpdatePublicScheduleService {
   async execute({
-    user_id,
-    haircut_id,
-    customer,
+    slug,
     phone,
+    customer,
+    schedule_id,
+    haircut_id,
     scheduled_at,
-    source = "shop",
-    ignore_schedule_id,
-  }: NewScheduleRequest) {
-    if (customer === "" || haircut_id === "") {
-      throw new Error("Erro ao criar agendamento");
+  }: UpdatePublicScheduleRequest) {
+    const shop = await prismaClient.user.findFirst({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!shop) {
+      throw new Error("Barbearia não encontrada");
     }
 
-    if (!scheduled_at) {
-      throw new Error("Informe a data e o horário do agendamento");
+    const customerPhone = normalizePhone(phone);
+
+    if (!isValidPhone(customerPhone) || !schedule_id) {
+      throw new Error("Informe o telefone e o agendamento");
     }
 
     const scheduledDate = normalizeSlotDate(new Date(scheduled_at));
@@ -49,7 +59,7 @@ class NewScheduleService {
     const haircut = await prismaClient.haircut.findFirst({
       where: {
         id: haircut_id,
-        user_id,
+        user_id: shop.id,
         status: true,
       },
     });
@@ -58,11 +68,32 @@ class NewScheduleService {
       throw new Error("Corte inválido para esta barbearia");
     }
 
-    const date = toLocalDateInput(scheduledDate);
+    const client = await new EnsureCustomerService().execute({
+      user_id: shop.id,
+      name: customer,
+      phone: customerPhone,
+    });
+
+    const schedule = await prismaClient.service.findFirst({
+      where: {
+        id: schedule_id,
+        user_id: shop.id,
+        customer_id: client.id,
+      },
+    });
+
+    if (!schedule) {
+      throw new Error("Agendamento não encontrado");
+    }
+
+    if (schedule.scheduled_at.getTime() <= Date.now()) {
+      throw new Error("Não é possível alterar um horário passado");
+    }
+
     const day = await new ListAvailableSlotsService().executeDay({
-      user_id,
-      date,
-      ignore_schedule_id,
+      user_id: shop.id,
+      date: toLocalDateInput(scheduledDate),
+      ignore_schedule_id: schedule_id,
     });
 
     const slotIsFree = day.slots.some(
@@ -74,29 +105,20 @@ class NewScheduleService {
       throw new Error("Esse horário não está disponível");
     }
 
-    const client = await new EnsureCustomerService().execute({
-      user_id,
-      name: customer,
-      phone,
-    });
-
     try {
-      const schedule = await prismaClient.service.create({
+      return await prismaClient.service.update({
+        where: {
+          id: schedule.id,
+        },
         data: {
           customer: client.name,
-          customer_id: client.id,
           haircut_id,
-          user_id,
           scheduled_at: scheduledDate,
-          source,
         },
         include: {
           haircut: true,
-          client: true,
         },
       });
-
-      return schedule;
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -110,4 +132,4 @@ class NewScheduleService {
   }
 }
 
-export { NewScheduleService };
+export { UpdatePublicScheduleService };

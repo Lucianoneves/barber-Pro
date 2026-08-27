@@ -1,4 +1,4 @@
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useRef, useState, ChangeEvent } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import {
@@ -42,6 +42,12 @@ interface SlotItem {
   status: "available" | "occupied" | "past";
 }
 
+interface CustomerSchedule {
+  id: string;
+  scheduled_at: string;
+  haircut: HaircutItem;
+}
+
 interface AgendarShopProps {
   shop: ShopData;
 }
@@ -77,8 +83,31 @@ function nextOpenDate(closedWeekdays: number[]) {
   return todayInput();
 }
 
+function toDateInput(value: string) {
+  const date = new Date(value);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function slotTime(value: string) {
+  const date = new Date(value);
+  date.setSeconds(0, 0);
+  return date.getTime();
+}
+
 function formatSlot(value: string) {
   return new Date(value).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -101,6 +130,8 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   const [phone, setPhone] = useState("");
   const [customer, setCustomer] = useState("");
   const [knownCustomer, setKnownCustomer] = useState(false);
+  const [mySchedules, setMySchedules] = useState<CustomerSchedule[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [haircutId, setHaircutId] = useState(shop.haircuts[0]?.id || "");
   const closedWeekdays = shop.businessHours
     .filter((hour) => hour.closed)
@@ -111,10 +142,22 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [slotsNonce, setSlotsNonce] = useState(0);
   const [done, setDone] = useState<{
     scheduled_at: string;
     haircut: HaircutItem;
+    updated?: boolean;
   } | null>(null);
+  const selectedSlotRef = useRef("");
+  const editingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedSlotRef.current = selectedSlot;
+  }, [selectedSlot]);
+
+  useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
 
   useEffect(() => {
     async function loadSlots() {
@@ -122,30 +165,42 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
         return;
       }
 
+      const keepSlot = selectedSlotRef.current;
       setLoadingSlots(true);
-      setSelectedSlot("");
 
       try {
         const apiClient = setupAPIClient();
         const response = await apiClient.get(`/public/shops/${shop.slug}/slots`, {
-          params: { date },
+          params: {
+            date,
+            ignore_schedule_id: editingIdRef.current || undefined,
+          },
         });
+        const nextSlots: SlotItem[] = Array.isArray(response.data?.slots)
+          ? response.data.slots
+          : [];
         setDayClosed(Boolean(response.data?.closed));
-        setSlots(Array.isArray(response.data?.slots) ? response.data.slots : []);
+        setSlots(nextSlots);
+        const stillThere = nextSlots.some(
+          (slot) => keepSlot && slotTime(slot.at) === slotTime(keepSlot)
+        );
+        setSelectedSlot(stillThere ? keepSlot : "");
       } catch {
         setDayClosed(false);
         setSlots([]);
+        setSelectedSlot("");
       } finally {
         setLoadingSlots(false);
       }
     }
 
     loadSlots();
-  }, [date, shop.slug]);
+  }, [date, shop.slug, editingId, slotsNonce]);
 
-  async function handlePhoneBlur() {
-    if (!phone) {
+  async function loadCustomer(currentPhone: string) {
+    if (!currentPhone) {
       setKnownCustomer(false);
+      setMySchedules([]);
       return;
     }
 
@@ -153,17 +208,72 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
       const apiClient = setupAPIClient();
       const response = await apiClient.get(
         `/public/shops/${shop.slug}/customer`,
-        { params: { phone } }
+        { params: { phone: currentPhone } }
       );
 
       if (response.data?.exists && response.data?.name) {
         setCustomer(response.data.name);
         setKnownCustomer(true);
+        setMySchedules(
+          Array.isArray(response.data?.schedules) ? response.data.schedules : []
+        );
       } else {
         setKnownCustomer(false);
+        setMySchedules([]);
       }
     } catch {
       setKnownCustomer(false);
+      setMySchedules([]);
+    }
+  }
+
+  async function handlePhoneBlur() {
+    await loadCustomer(phone);
+  }
+
+  function resetBookingForm() {
+    setEditingId(null);
+    setSelectedSlot("");
+    setHaircutId(shop.haircuts[0]?.id || "");
+    setDate(nextOpenDate(closedWeekdays));
+  }
+
+  function handleEdit(schedule: CustomerSchedule) {
+    setEditingId(schedule.id);
+    setHaircutId(schedule.haircut.id);
+    setDate(toDateInput(schedule.scheduled_at));
+    setSelectedSlot(schedule.scheduled_at);
+    selectedSlotRef.current = schedule.scheduled_at;
+  }
+
+  async function handleCancel(schedule: CustomerSchedule) {
+    const confirmed = window.confirm(
+      `Cancelar o horário de ${formatDateTime(schedule.scheduled_at)}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const apiClient = setupAPIClient();
+      await apiClient.delete("/public/schedules", {
+        data: {
+          slug: shop.slug,
+          phone,
+          schedule_id: schedule.id,
+        },
+      });
+
+      if (editingId === schedule.id) {
+        resetBookingForm();
+      }
+
+      await loadCustomer(phone);
+      setSlotsNonce((current) => current + 1);
+      alert("Agendamento cancelado");
+    } catch (err) {
+      alert(getApiError(err, "Erro ao cancelar"));
     }
   }
 
@@ -177,20 +287,27 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
 
     try {
       const apiClient = setupAPIClient();
-      const response = await apiClient.post("/public/schedules", {
+      const payload = {
         slug: shop.slug,
         customer,
         phone,
         haircut_id: haircutId,
         scheduled_at: selectedSlot,
-      });
+        schedule_id: editingId || undefined,
+      };
+      const response = editingId
+        ? await apiClient.put("/public/schedules", payload)
+        : await apiClient.post("/public/schedules", payload);
 
       setDone({
         scheduled_at: response.data.scheduled_at,
         haircut: response.data.haircut,
+        updated: Boolean(editingId),
       });
+      setEditingId(null);
+      await loadCustomer(phone);
     } catch (err) {
-      alert(getApiError(err, "Erro ao agendar"));
+      alert(getApiError(err, editingId ? "Erro ao alterar" : "Erro ao agendar"));
     } finally {
       setSaving(false);
     }
@@ -214,7 +331,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
             rounded={8}
           >
             <Heading color="orange.900" mb={4} fontSize="2xl">
-              Agendamento confirmado
+              {done.updated
+                ? "Agendamento atualizado"
+                : "Agendamento confirmado"}
             </Heading>
             <Text color="white" mb={2}>
               {customer}, você está cadastrado em {shop.name}.
@@ -223,18 +342,23 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
               Corte: {done.haircut.name}
             </Text>
             <Text color="gray.300" mb={6}>
-              Horário:{" "}
-              {new Date(done.scheduled_at).toLocaleString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              Horário: {formatDateTime(done.scheduled_at)}
             </Text>
             <Button
               bg="button.cta"
               color="gray.900"
+              mb={3}
+              onClick={() => {
+                setDone(null);
+                resetBookingForm();
+              }}
+            >
+              Gerenciar meus horários
+            </Button>
+            <Button
+              variant="outline"
+              color="white"
+              borderColor="gray.600"
               onClick={() => router.push("/agendar")}
             >
               Escolher outra barbearia
@@ -281,9 +405,12 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 color="white"
                 borderColor="gray.700"
                 value={phone}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setPhone(e.target.value)
-                }
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  setPhone(e.target.value);
+                  setEditingId(null);
+                  setMySchedules([]);
+                  setKnownCustomer(false);
+                }}
                 onBlur={handlePhoneBlur}
               />
 
@@ -305,6 +432,70 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 <Text w="85%" mb={3} color="green.300" fontSize="sm">
                   Encontramos seu cadastro nesta barbearia.
                 </Text>
+              )}
+
+              {mySchedules.length > 0 && (
+                <Flex w="85%" mb={4} direction="column">
+                  <Text mb={2} color="gray.300" fontWeight="bold">
+                    Seus próximos horários
+                  </Text>
+                  {mySchedules.map((schedule) => (
+                    <Flex
+                      key={schedule.id}
+                      bg="barber.900"
+                      borderWidth={1}
+                      borderColor={
+                        editingId === schedule.id ? "orange.900" : "gray.700"
+                      }
+                      rounded={6}
+                      p={3}
+                      mb={2}
+                      direction={{ base: "column", sm: "row" }}
+                      align={{ base: "flex-start", sm: "center" }}
+                      justify="space-between"
+                      gap={3}
+                    >
+                      <Flex direction="column">
+                        <Text color="white" fontWeight="bold">
+                          {formatDateTime(schedule.scheduled_at)}
+                        </Text>
+                        <Text color="gray.400" fontSize="sm">
+                          {schedule.haircut.name} -{" "}
+                          {formatPrice(schedule.haircut.price)}
+                        </Text>
+                      </Flex>
+                      <Flex gap={2}>
+                        <Button
+                          size="sm"
+                          bg="barber.400"
+                          color="white"
+                          onClick={() => handleEdit(schedule)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          bg="red.900"
+                          color="red.200"
+                          onClick={() => handleCancel(schedule)}
+                        >
+                          Cancelar
+                        </Button>
+                      </Flex>
+                    </Flex>
+                  ))}
+                </Flex>
+              )}
+
+              {editingId && (
+                <Flex w="85%" mb={3} justify="space-between" align="center">
+                  <Text color="orange.900" fontSize="sm" fontWeight="bold">
+                    Alterando um horário existente
+                  </Text>
+                  <Button size="sm" variant="ghost" color="gray.400" onClick={resetBookingForm}>
+                    Novo agendamento
+                  </Button>
+                </Flex>
               )}
 
               <Select
@@ -336,7 +527,12 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                   value={date}
                   minDate={todayInput()}
                   closedWeekdays={closedWeekdays}
-                  onChange={setDate}
+                  onChange={(nextDate) => {
+                    setDate(nextDate);
+                    if (!editingId) {
+                      setSelectedSlot("");
+                    }
+                  }}
                 />
               </Flex>
 
@@ -383,7 +579,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 {slots.map((slot) => {
                   const isAvailable = slot.status === "available";
                   const isOccupied = slot.status === "occupied";
-                  const isSelected = selectedSlot === slot.at;
+                  const isSelected =
+                    Boolean(selectedSlot) &&
+                    slotTime(selectedSlot) === slotTime(slot.at);
 
                   return (
                     <Button
@@ -427,7 +625,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 isLoading={saving}
                 onClick={handleSubmit}
               >
-                Confirmar agendamento
+                {editingId ? "Salvar alteração" : "Confirmar agendamento"}
               </Button>
             </Flex>
           )}

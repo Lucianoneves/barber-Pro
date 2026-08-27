@@ -27,6 +27,8 @@ import { DetailPublicShopController } from "./controller/public/DetailPublicShop
 import { ListPublicSlotsController } from "./controller/public/ListPublicSlotsController";
 import { LookupPublicCustomerController } from "./controller/public/LookupPublicCustomerController";
 import { CreatePublicScheduleController } from "./controller/public/CreatePublicScheduleController";
+import { UpdatePublicScheduleController } from "./controller/public/UpdatePublicScheduleController";
+import { CancelPublicScheduleController } from "./controller/public/CancelPublicScheduleController";
 
 import { isAuthenticated } from "./middlewares/isAuthenticated";
 import { WebhooksController } from "./controller/subscription/WbhooksController";
@@ -123,5 +125,10 @@ router.get(
 );
 router.get("/public/shops/:slug", new DetailPublicShopController().handle);
 router.post("/public/schedules", new CreatePublicScheduleController().handle);
+router.put("/public/schedules", new UpdatePublicScheduleController().handle);
+router.delete(
+  "/public/schedules",
+  new CancelPublicScheduleController().handle
+);
 
 export default router;

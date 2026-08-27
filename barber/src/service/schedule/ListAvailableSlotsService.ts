@@ -9,6 +9,7 @@ import {
 interface ListAvailableSlotsRequest {
   user_id: string;
   date: string;
+  ignore_schedule_id?: string;
 }
 
 class ListAvailableSlotsService {
@@ -24,7 +25,11 @@ class ListAvailableSlotsService {
       .map((slot) => slot.at);
   }
 
-  async executeDay({ user_id, date }: ListAvailableSlotsRequest) {
+  async executeDay({
+    user_id,
+    date,
+    ignore_schedule_id,
+  }: ListAvailableSlotsRequest) {
     if (!isValidDateInput(date)) {
       throw new Error("Data inválida");
     }
@@ -62,6 +67,13 @@ class ListAvailableSlotsService {
           gte: start,
           lte: end,
         },
+        ...(ignore_schedule_id
+          ? {
+              id: {
+                not: ignore_schedule_id,
+              },
+            }
+          : {}),
       },
       select: {
         scheduled_at: true,

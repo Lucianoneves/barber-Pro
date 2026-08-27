@@ -4,10 +4,11 @@ import { ListAvailableSlotsService } from "../schedule/ListAvailableSlotsService
 interface ListPublicSlotsRequest {
   slug: string;
   date: string;
+  ignore_schedule_id?: string;
 }
 
 class ListPublicSlotsService {
-  async execute({ slug, date }: ListPublicSlotsRequest) {
+  async execute({ slug, date, ignore_schedule_id }: ListPublicSlotsRequest) {
     const shop = await prismaClient.user.findFirst({
       where: {
         slug,
@@ -24,6 +25,7 @@ class ListPublicSlotsService {
     const day = await new ListAvailableSlotsService().executeDay({
       user_id: shop.id,
       date,
+      ignore_schedule_id,
     });
 
     return {
