@@ -16,6 +16,8 @@ Regras:
 - Descrição em português, no imperativo, sem ponto final
 - Tipos em inglês (padrão Conventional Commits)
 - Máximo de 100 caracteres no cabeçalho
+- Ao concluir uma alteração de código, **crie o commit automaticamente** e faça **`git push`** na branch atual
+- Não espere o usuário pedir commit ou push, salvo se ele pedir para não enviar
 
 Exemplos:
 
