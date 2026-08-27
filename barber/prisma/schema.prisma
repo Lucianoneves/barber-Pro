@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String    @id @default(uuid())
+  name                   String
+  email                  String    @unique
+  endereco               String?
+  password               String
+  stripe_customer_id     String?
+  slug                   String    @unique
+  slot_interval_minutes  Int       @default(30)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+  subscriptions Subscription?
+  haircuts      Haircut[]
+  services      Service[]
+  customers     Customer[]
+  businessHours BusinessHour[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  status    String
+  price_id  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Haircut {
+  id        String   @id @default(uuid())
+  name      String
+  price     Float
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("haircuts")
+  user      User      @relation(fields: [user_id], references: [id])
+  user_id   String
+  services  Service[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([user_id, phone])
+  @@map("customers")
+  user      User      @relation(fields: [user_id], references: [id])
+  user_id   String
+  services  Service[]
+}
+
+model BusinessHour {
+  id         String   @id @default(uuid())
+  weekday    Int
+  closed     Boolean  @default(false)
+  opens_at   String?
+  closes_at  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([user_id, weekday])
+  @@map("business_hours")
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+}
+
+model Service {
+  id           String   @id @default(uuid())
+  customer     String
+  scheduled_at DateTime
+  source       String   @default("shop")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([user_id, scheduled_at])
+  @@map("services")
+  haircut     Haircut   @relation(fields: [haircut_id], references: [id])
+  haircut_id  String
+  user        User      @relation(fields: [user_id], references: [id])
+  user_id     String
+  client      Customer? @relation(fields: [customer_id], references: [id])
+  customer_id String?
+}

@@ -1,0 +1,21 @@
+# <tipo>: <descrição no imperativo, em português>
+#
+# Tipos permitidos:
+#   feat     — nova funcionalidade
+#   fix      — correção de bug
+#   docs     — documentação
+#   style    — formatação (sem mudança de lógica)
+#   refactor — refatoração
+#   perf     — melhoria de performance
+#   test     — testes
+#   build    — build ou dependências
+#   ci       — integração contínua
+#   chore    — tarefas de manutenção
+#   revert   — reverte um commit
+#
+# Exemplos:
+#   feat: adiciona tela de login
+#   fix: corrige redirecionamento após autenticação
+#   chore: configura hooks de pre-commit
+#
+# O assunto deve estar em português, no imperativo e sem ponto final.
