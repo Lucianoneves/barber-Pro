@@ -21,12 +21,18 @@ class ListPublicSlotsService {
       throw new Error("Barbearia não encontrada");
     }
 
-    const slots = await new ListAvailableSlotsService().execute({
+    const day = await new ListAvailableSlotsService().executeDay({
       user_id: shop.id,
       date,
     });
 
-    return slots.map((slot) => slot.toISOString());
+    return {
+      closed: day.closed,
+      slots: day.slots.map((slot) => ({
+        at: slot.at.toISOString(),
+        status: slot.status,
+      })),
+    };
   }
 }
 

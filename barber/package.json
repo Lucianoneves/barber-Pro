@@ -5,8 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "ts-node-dev --transpile-only src/server.ts",
-    "build": "prisma generate",
-    "start": "prisma migrate deploy && tsx src/server.ts",
+    "build": "npx prisma generate",
+    "start": "npx prisma migrate deploy && npx tsx src/server.ts",
     "prepare": "husky || true"
   },
   "devDependencies": {

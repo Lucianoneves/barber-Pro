@@ -10,6 +10,7 @@ import {
   Button,
 } from "@chakra-ui/react";
 import { PublicHeader } from "@/src/components/publicHeader";
+import { BookingCalendar } from "@/src/components/bookingCalendar";
 import { setupAPIClient } from "@/src/services/api";
 import { GetServerSideProps } from "next";
 import { AxiosError } from "axios";
@@ -36,6 +37,11 @@ interface ShopData {
   businessHours: ShopHour[];
 }
 
+interface SlotItem {
+  at: string;
+  status: "available" | "occupied" | "past";
+}
+
 interface AgendarShopProps {
   shop: ShopData;
 }
@@ -55,6 +61,20 @@ function todayInput() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function nextOpenDate(closedWeekdays: number[]) {
+  for (let offset = 0; offset < 14; offset += 1) {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    if (!closedWeekdays.includes(date.getDay())) {
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${date.getFullYear()}-${month}-${day}`;
+    }
+  }
+
+  return todayInput();
 }
 
 function formatSlot(value: string) {
@@ -82,8 +102,12 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   const [customer, setCustomer] = useState("");
   const [knownCustomer, setKnownCustomer] = useState(false);
   const [haircutId, setHaircutId] = useState(shop.haircuts[0]?.id || "");
-  const [date, setDate] = useState(todayInput());
-  const [slots, setSlots] = useState<string[]>([]);
+  const closedWeekdays = shop.businessHours
+    .filter((hour) => hour.closed)
+    .map((hour) => hour.weekday);
+  const [date, setDate] = useState(() => nextOpenDate(closedWeekdays));
+  const [slots, setSlots] = useState<SlotItem[]>([]);
+  const [dayClosed, setDayClosed] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,8 +130,10 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
         const response = await apiClient.get(`/public/shops/${shop.slug}/slots`, {
           params: { date },
         });
-        setSlots(Array.isArray(response.data) ? response.data : []);
+        setDayClosed(Boolean(response.data?.closed));
+        setSlots(Array.isArray(response.data?.slots) ? response.data.slots : []);
       } catch {
+        setDayClosed(false);
         setSlots([]);
       } finally {
         setLoadingSlots(false);
@@ -302,45 +328,94 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 ))}
               </Select>
 
-              <Input
-                w="85%"
-                mb={3}
-                size="lg"
-                type="date"
-                min={todayInput()}
-                bg="barber.900"
-                color="white"
-                borderColor="gray.700"
-                value={date}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setDate(e.target.value)
-                }
-              />
+              <Flex w="85%" mb={4} direction="column">
+                <Text mb={2} color="gray.300" fontWeight="bold">
+                  Escolha a data
+                </Text>
+                <BookingCalendar
+                  value={date}
+                  minDate={todayInput()}
+                  closedWeekdays={closedWeekdays}
+                  onChange={setDate}
+                />
+              </Flex>
 
-              <Text w="85%" mb={2} color="gray.400" fontSize="sm">
-                Horários livres a cada {shop.slot_interval_minutes} min
+              <Text w="85%" mb={2} color="gray.300" fontWeight="bold">
+                Horários
               </Text>
+              <Text w="85%" mb={2} color="gray.400" fontSize="sm">
+                Intervalo de {shop.slot_interval_minutes} min. Ocupados e
+                passados aparecem desabilitados.
+              </Text>
+              <Flex w="85%" mb={3} gap={4} wrap="wrap" align="center">
+                <Flex align="center" gap={2}>
+                  <Flex w="12px" h="12px" bg="barber.900" borderWidth={1} borderColor="gray.500" />
+                  <Text fontSize="sm" color="white">
+                    Livre
+                  </Text>
+                </Flex>
+                <Flex align="center" gap={2}>
+                  <Flex w="12px" h="12px" bg="red.900" borderWidth={1} borderColor="red.500" />
+                  <Text fontSize="sm" color="red.300">
+                    Ocupado
+                  </Text>
+                </Flex>
+                <Flex align="center" gap={2}>
+                  <Flex w="12px" h="12px" bg="barber.900" opacity={0.5} />
+                  <Text fontSize="sm" color="gray.500">
+                    Indisponível
+                  </Text>
+                </Flex>
+              </Flex>
 
               <Flex w="85%" mb={4} wrap="wrap" gap={2}>
-                {loadingSlots && <Text color="gray.400">Carregando horários...</Text>}
-                {!loadingSlots && slots.length === 0 && (
+                {loadingSlots && (
+                  <Text color="gray.400">Carregando horários...</Text>
+                )}
+                {!loadingSlots && dayClosed && (
+                  <Text color="gray.400">A barbearia não abre neste dia.</Text>
+                )}
+                {!loadingSlots && !dayClosed && slots.length === 0 && (
                   <Text color="gray.400">
-                    Nenhum horário livre neste dia.
+                    Nenhum horário neste dia.
                   </Text>
                 )}
-                {slots.map((slot) => (
-                  <Button
-                    key={slot}
-                    size="sm"
-                    bg={selectedSlot === slot ? "button.cta" : "barber.900"}
-                    color={selectedSlot === slot ? "gray.900" : "white"}
-                    borderWidth={1}
-                    borderColor="gray.700"
-                    onClick={() => setSelectedSlot(slot)}
-                  >
-                    {formatSlot(slot)}
-                  </Button>
-                ))}
+                {slots.map((slot) => {
+                  const isAvailable = slot.status === "available";
+                  const isOccupied = slot.status === "occupied";
+                  const isSelected = selectedSlot === slot.at;
+
+                  return (
+                    <Button
+                      key={slot.at}
+                      size="sm"
+                      bg={
+                        isSelected
+                          ? "button.cta"
+                          : isOccupied
+                            ? "red.900"
+                            : "barber.900"
+                      }
+                      color={
+                        isSelected
+                          ? "gray.900"
+                          : isOccupied
+                            ? "red.200"
+                            : isAvailable
+                              ? "white"
+                              : "gray.500"
+                      }
+                      borderWidth={1}
+                      borderColor={isOccupied ? "red.500" : "gray.700"}
+                      opacity={isAvailable || isSelected ? 1 : 0.7}
+                      isDisabled={!isAvailable}
+                      textDecoration={isAvailable ? "none" : "line-through"}
+                      onClick={() => setSelectedSlot(slot.at)}
+                    >
+                      {formatSlot(slot.at)}
+                    </Button>
+                  );
+                })}
               </Flex>
 
               <Button

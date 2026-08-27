@@ -36,7 +36,9 @@ export function normalizeSlotDate(value: Date) {
   return slot;
 }
 
-export function buildAvailableSlots({
+export type SlotStatus = "available" | "occupied" | "past";
+
+export function buildDaySlots({
   date,
   opens_at,
   closes_at,
@@ -56,7 +58,7 @@ export function buildAvailableSlots({
   const occupiedTimes = new Set(
     occupied.map((item) => normalizeSlotDate(item).getTime())
   );
-  const slots: Date[] = [];
+  const slots: { at: Date; status: SlotStatus }[] = [];
   const step = interval * 60 * 1000;
 
   let current = normalizeSlotDate(open);
@@ -64,15 +66,29 @@ export function buildAvailableSlots({
   while (current.getTime() + step <= close.getTime()) {
     const isOccupied = occupiedTimes.has(current.getTime());
     const isPast = current.getTime() <= now.getTime();
+    const status: SlotStatus = isPast
+      ? "past"
+      : isOccupied
+        ? "occupied"
+        : "available";
 
-    if (!isOccupied && !isPast) {
-      slots.push(new Date(current));
-    }
+    slots.push({
+      at: new Date(current),
+      status,
+    });
 
     current = new Date(current.getTime() + step);
   }
 
   return slots;
+}
+
+export function buildAvailableSlots(
+  params: Parameters<typeof buildDaySlots>[0]
+) {
+  return buildDaySlots(params)
+    .filter((slot) => slot.status === "available")
+    .map((slot) => slot.at);
 }
 
 export function isSameSlot(left: Date, right: Date) {

@@ -1,6 +1,6 @@
 import prismaClient from "../../prisma";
 import {
-  buildAvailableSlots,
+  buildDaySlots,
   dayRange,
   isValidDateInput,
   weekdayFromDate,
@@ -13,6 +13,18 @@ interface ListAvailableSlotsRequest {
 
 class ListAvailableSlotsService {
   async execute({ user_id, date }: ListAvailableSlotsRequest) {
+    const day = await this.executeDay({ user_id, date });
+
+    if (day.closed) {
+      return [];
+    }
+
+    return day.slots
+      .filter((slot) => slot.status === "available")
+      .map((slot) => slot.at);
+  }
+
+  async executeDay({ user_id, date }: ListAvailableSlotsRequest) {
     if (!isValidDateInput(date)) {
       throw new Error("Data inválida");
     }
@@ -35,7 +47,10 @@ class ListAvailableSlotsService {
     );
 
     if (!hour || hour.closed || !hour.opens_at || !hour.closes_at) {
-      return [];
+      return {
+        closed: true,
+        slots: [],
+      };
     }
 
     const { start, end } = dayRange(date);
@@ -53,13 +68,16 @@ class ListAvailableSlotsService {
       },
     });
 
-    return buildAvailableSlots({
-      date,
-      opens_at: hour.opens_at,
-      closes_at: hour.closes_at,
-      interval: user.slot_interval_minutes,
-      occupied: occupied.map((item) => item.scheduled_at),
-    });
+    return {
+      closed: false,
+      slots: buildDaySlots({
+        date,
+        opens_at: hour.opens_at,
+        closes_at: hour.closes_at,
+        interval: user.slot_interval_minutes,
+        occupied: occupied.map((item) => item.scheduled_at),
+      }),
+    };
   }
 }
 
