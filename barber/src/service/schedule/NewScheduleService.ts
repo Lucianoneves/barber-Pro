@@ -65,13 +65,45 @@ class NewScheduleService {
       ignore_schedule_id,
     });
 
-    const slotIsFree = day.slots.some(
-      (slot) =>
-        slot.status === "available" && isSameSlot(slot.at, scheduledDate)
+    if (day.closed) {
+      throw new Error("A barbearia não abre neste dia");
+    }
+
+    const matchingSlot = day.slots.find((slot) =>
+      isSameSlot(slot.at, scheduledDate)
     );
 
-    if (!slotIsFree) {
-      throw new Error("Esse horário não está disponível");
+    if (!matchingSlot) {
+      throw new Error("Data ou horário inválido");
+    }
+
+    if (matchingSlot.status !== "available") {
+      throw new Error(
+        "Esse horário já está ocupado, independente do tipo de corte"
+      );
+    }
+
+    const overlapping = await prismaClient.service.findFirst({
+      where: {
+        user_id,
+        scheduled_at: scheduledDate,
+        ...(ignore_schedule_id
+          ? {
+              id: {
+                not: ignore_schedule_id,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (overlapping) {
+      throw new Error(
+        "Esse horário já está ocupado, independente do tipo de corte"
+      );
     }
 
     const client = await new EnsureCustomerService().execute({
@@ -102,7 +134,9 @@ class NewScheduleService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
       ) {
-        throw new Error("Esse horário acabou de ser ocupado");
+        throw new Error(
+          "Esse horário já está ocupado, independente do tipo de corte"
+        );
       }
 
       throw err;

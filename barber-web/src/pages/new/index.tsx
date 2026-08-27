@@ -193,7 +193,8 @@ export default function New({ haircuts }: NewProps) {
             />
 
             <Text w="85%" mb={2} color="gray.400" fontSize="sm">
-              Horários livres
+              Horários livres da cadeira. Trocar o tipo de corte não libera um
+              horário já ocupado.
             </Text>
             <Flex w="85%" mb={4} wrap="wrap" gap={2}>
               {loadingSlots && <Text color="gray.400">Carregando horários...</Text>}

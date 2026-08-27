@@ -540,8 +540,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 Horários
               </Text>
               <Text w="85%" mb={2} color="gray.400" fontSize="sm">
-                Intervalo de {shop.slot_interval_minutes} min. Ocupados e
-                passados aparecem desabilitados.
+                Intervalo de {shop.slot_interval_minutes} min. Um horário
+                ocupado não pode ser usado por outro cliente nem por outro tipo
+                de corte.
               </Text>
               <Flex w="85%" mb={3} gap={4} wrap="wrap" align="center">
                 <Flex align="center" gap={2}>

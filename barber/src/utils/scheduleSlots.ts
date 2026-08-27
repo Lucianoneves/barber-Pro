@@ -55,16 +55,13 @@ export function buildDaySlots({
 }) {
   const open = new Date(`${date}T${opens_at}:00`);
   const close = new Date(`${date}T${closes_at}:00`);
-  const occupiedTimes = new Set(
-    occupied.map((item) => normalizeSlotDate(item).getTime())
-  );
   const slots: { at: Date; status: SlotStatus }[] = [];
   const step = interval * 60 * 1000;
 
   let current = normalizeSlotDate(open);
 
   while (current.getTime() + step <= close.getTime()) {
-    const isOccupied = occupiedTimes.has(current.getTime());
+    const isOccupied = occupiesSlotWindow(current, occupied, interval);
     const isPast = current.getTime() <= now.getTime();
     const status: SlotStatus = isPast
       ? "past"
@@ -93,4 +90,18 @@ export function buildAvailableSlots(
 
 export function isSameSlot(left: Date, right: Date) {
   return normalizeSlotDate(left).getTime() === normalizeSlotDate(right).getTime();
+}
+
+export function occupiesSlotWindow(
+  slot: Date,
+  occupied: Date[],
+  intervalMinutes: number
+) {
+  const start = normalizeSlotDate(slot).getTime();
+  const end = start + intervalMinutes * 60 * 1000;
+
+  return occupied.some((item) => {
+    const taken = normalizeSlotDate(item).getTime();
+    return taken >= start && taken < end;
+  });
 }

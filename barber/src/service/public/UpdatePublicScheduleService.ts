@@ -96,13 +96,22 @@ class UpdatePublicScheduleService {
       ignore_schedule_id: schedule_id,
     });
 
-    const slotIsFree = day.slots.some(
-      (slot) =>
-        slot.status === "available" && isSameSlot(slot.at, scheduledDate)
+    if (day.closed) {
+      throw new Error("A barbearia não abre neste dia");
+    }
+
+    const matchingSlot = day.slots.find((slot) =>
+      isSameSlot(slot.at, scheduledDate)
     );
 
-    if (!slotIsFree) {
-      throw new Error("Esse horário não está disponível");
+    if (!matchingSlot) {
+      throw new Error("Data ou horário inválido");
+    }
+
+    if (matchingSlot.status !== "available") {
+      throw new Error(
+        "Esse horário já está ocupado, independente do tipo de corte"
+      );
     }
 
     try {
@@ -124,7 +133,9 @@ class UpdatePublicScheduleService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
       ) {
-        throw new Error("Esse horário acabou de ser ocupado");
+        throw new Error(
+          "Esse horário já está ocupado, independente do tipo de corte"
+        );
       }
 
       throw err;
