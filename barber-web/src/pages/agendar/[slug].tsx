@@ -334,7 +334,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
               Corte: {done.haircut.name}
             </Text>
             <Text color="gray.300" mb={6}>
-              Horário: {formatDateTime(done.scheduled_at)}
+              Data e horário: {formatDateTime(done.scheduled_at)}
             </Text>
             <Button
               bg="button.cta"

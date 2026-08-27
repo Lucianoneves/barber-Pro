@@ -39,7 +39,8 @@ export function formatShopTime(value: string) {
 }
 
 export function formatShopDateTime(value: string) {
-  return new Date(value).toLocaleString("pt-BR", {
+  const formatted = new Date(value).toLocaleString("pt-BR", {
+    weekday: "long",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -47,4 +48,6 @@ export function formatShopDateTime(value: string) {
     minute: "2-digit",
     timeZone: SHOP_TIMEZONE,
   });
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
