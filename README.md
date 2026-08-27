@@ -64,6 +64,8 @@ Não commite arquivos `.env`. Use os exemplos abaixo.
 ```env
 DATABASE_URL="postgresql://USUARIO:SENHA@HOST/DB?sslmode=require"
 JWT_SECRET="seu_jwt_secret"
+PORT=3333
+FRONTEND_URL="http://localhost:3000"
 
 STRIPE_API_KEY="sk_test_..."
 STRIPE_PRICE="price_..."          # Price ID (price_...). Também aceita Product ID (prod_...)
@@ -73,6 +75,8 @@ STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
 `STRIPE_SUCCESS_URL` e `STRIPE_CANCEL_URL` são as URLs de retorno do Checkout. A API acrescenta `session_id={CHECKOUT_SESSION_ID}` na URL de sucesso.
+
+`PORT` é opcional no computador (padrão `3333`). Em produção o host define essa variável. `FRONTEND_URL` restringe o CORS à URL do site; se ficar vazia, qualquer origem pode chamar a API.
 
 ### Frontend — `barber-web/.env.local`
 
@@ -238,6 +242,8 @@ Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ```bash
 yarn dev                 # API com reload (porta 3333)
+yarn start               # produção: migrate + API
+yarn build               # prisma generate (host de API)
 npx prisma generate      # client Prisma
 npx prisma migrate dev   # nova migration (desenvolvimento)
 npx prisma studio        # interface do banco
@@ -251,3 +257,57 @@ yarn build
 yarn start
 yarn lint
 ```
+
+---
+
+## Produção
+
+São dois deploys. A Vercel hospeda só o `barber-web`. A API Express fica num host com processo Node contínuo (Railway, Render ou Fly.io). O banco continua no Neon.
+
+### 1. API
+
+Na pasta `barber/`, o host deve usar:
+
+- **Build:** `yarn && yarn build`
+- **Start:** `yarn start` (`prisma migrate deploy` + API)
+- **Porta:** variável `PORT` (o código já escuta `0.0.0.0`)
+
+Variáveis da API em produção:
+
+```env
+DATABASE_URL="postgresql://...neon.../neondb?sslmode=require"
+JWT_SECRET="segredo-longo-e-estavel"
+FRONTEND_URL="https://SEU-PROJETO.vercel.app"
+
+STRIPE_API_KEY="sk_test_..."
+STRIPE_PRICE="price_..."
+STRIPE_SUCCESS_URL="https://SEU-PROJETO.vercel.app/planos"
+STRIPE_CANCEL_URL="https://SEU-PROJETO.vercel.app/planos"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+```
+
+Anote a URL pública da API, por exemplo `https://barber-api.onrender.com`.
+
+### 2. Vercel (`barber-web`)
+
+1. Importe o repositório Git na Vercel.
+2. **Root Directory:** `barber-web`.
+3. Framework: Next.js (já há `vercel.json` nessa pasta).
+4. Variáveis:
+
+```env
+NEXT_PUBLIC_API_URL=https://barber-api.onrender.com
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_test_...
+```
+
+`NEXT_PUBLIC_API_URL` entra no build. Depois de mudar o valor, faça um novo deploy.
+
+O link do cliente fica `https://SEU-PROJETO.vercel.app/agendar/slug-da-casa`.
+
+### 3. Stripe
+
+Endpoint de webhook: `https://SUA-API/webhook`.
+
+Eventos: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
+
+Cole o `whsec_...` em `STRIPE_WEBHOOK_SECRET`. No Customer Portal, use a URL da Vercel.
