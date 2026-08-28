@@ -23,6 +23,7 @@ import {
   toShopDateInput,
 } from "@/src/utils/shopTime";
 import { saveLastShop } from "@/src/utils/lastShop";
+import { formatPhoneInput } from "@/src/utils/phone";
 import {
   customerAuthHeaders,
   clearCustomerAccess,
@@ -219,7 +220,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
 
     setAccessToken(token);
     setCustomer(name);
-    setPhone(currentPhone);
+    setPhone(formatPhoneInput(currentPhone));
     setKnownCustomer(true);
     saveCustomerAccess(shop.slug, {
       token,
@@ -448,7 +449,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
             </Heading>
             <Text color="white" mb={2}>
               {customer}, este acesso é só seu em {shop.name}. Outros clientes
-              não veem os seus horários.
+      
             </Text>
             <Text color="gray.300" mb={2}>
               Corte: {done.haircut.name}
@@ -509,20 +510,21 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
               align="center"
             >
               <Input
-                placeholder="Seu telefone"
+                placeholder="(11) 99999-9999"
                 w="85%"
                 mb={3}
                 size="lg"
                 type="tel"
                 inputMode="numeric"
                 autoComplete="off"
+                maxLength={15}
                 bg="barber.900"
                 color="white"
                 borderColor="gray.700"
                 value={phone}
                 isReadOnly={knownCustomer}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  setPhone(e.target.value);
+                  setPhone(formatPhoneInput(e.target.value));
                   setEditingId(null);
                   setMySchedules([]);
                   setKnownCustomer(false);
@@ -558,7 +560,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 >
                   <Text color="green.300" fontSize="sm">
                     Este telefone abre só os seus horários nesta casa. Horários
-                    ocupados aparecem sem o nome de outros clientes.
+                    ocupados.
                   </Text>
                   <Button
                     size="sm"

@@ -17,6 +17,7 @@ import {
   SchudelItem,
   formatScheduleDateTime,
 } from "../../pages/dashboard/index";
+import { formatPhone } from "@/src/utils/phone";
 
 interface ModalInfoProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export function ModalInfo({
             <Flex align="center" mb={3}>
               <FiPhone size={24} color="#FFF" />
               <Text ml={2} fontSize="large" fontWeight="bold" color="white">
-                {data.client.phone}
+                {formatPhone(data.client.phone)}
               </Text>
             </Flex>
           )}

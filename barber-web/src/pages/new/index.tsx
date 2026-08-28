@@ -7,6 +7,7 @@ import { setupAPIClient } from "@/src/services/api";
 import { useRouter } from "next/router";
 import { AxiosError } from "axios";
 import { formatShopTime, shopTodayInput } from "@/src/utils/shopTime";
+import { formatPhone, formatPhoneInput } from "@/src/utils/phone";
 
 interface HaircutProps {
   id: string;
@@ -37,18 +38,6 @@ function formatSlot(value: string) {
 function getApiError(error: unknown, fallback: string) {
   const axiosError = error as AxiosError<{ error?: string }>;
   return axiosError.response?.data?.error || fallback;
-}
-
-function formatPhone(phone: string) {
-  if (phone.length === 11) {
-    return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-  }
-
-  if (phone.length === 10) {
-    return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-  }
-
-  return phone;
 }
 
 function normalizeSearch(value: string) {
@@ -150,7 +139,7 @@ export default function New({ haircuts, customers }: NewProps) {
 
   function pickCustomer(item: CustomerItem) {
     setCustomer(item.name);
-    setPhone(item.phone);
+    setPhone(formatPhoneInput(item.phone));
   }
 
   async function handleRegister() {
@@ -254,19 +243,20 @@ export default function New({ haircuts, customers }: NewProps) {
 
             <Flex w="85%" mb={3} direction="column">
               <Input
-                placeholder="Telefone do cliente"
+                placeholder="(11) 99999-9999"
                 w="100%"
                 size="lg"
                 type="tel"
                 inputMode="numeric"
-                autoComplete="tel"
+                autoComplete="off"
+                maxLength={15}
                 bg="barber.900"
                 color="white"
                 borderColor="gray.700"
                 _placeholder={{ color: "gray.400" }}
                 value={phone}
                 onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setPhone(e.target.value)
+                  setPhone(formatPhoneInput(e.target.value))
                 }
               />
               {showPhoneSuggestions && (
