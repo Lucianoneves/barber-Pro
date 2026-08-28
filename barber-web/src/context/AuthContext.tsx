@@ -45,12 +45,14 @@ interface SignUpProps {
 
 export const AuthContext = createContext({} as AuthContextData);
 
-export function signOut() {
-  console.log("Error logout");
+export const BARBER_SESSION_KEY = "@barber.session";
 
+export function signOut() {
   try {
-    //tenta destruir o cookie e redirecionar para a pagina de login
     destroyCookie(null, "@barber.token", { path: "/" });
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(BARBER_SESSION_KEY);
+    }
     Router.push("/login");
   } catch (error) {
     console.log("Erro ao sair");
@@ -71,9 +73,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const { "@barber.token": token } = parseCookies();
+    const hasTabSession =
+      typeof window !== "undefined" &&
+      Boolean(sessionStorage.getItem(BARBER_SESSION_KEY));
+
+    if (token && !hasTabSession) {
+      destroyCookie(null, "@barber.token", { path: "/" });
+      return;
+    }
 
     if (token) {
-      //se o token existe, pega os dados do usuario
       api
         .get("/me")
         .then((response) => {
@@ -87,7 +96,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             subscriptions,
           });
         })
-
         .catch(() => {
           signOut();
         });
@@ -101,8 +109,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password,
       });
       const { id, name, token, subscriptions, endereco } = response.data;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(BARBER_SESSION_KEY, "1");
+      }
       setCookie(undefined, "@barber.token", token, {
-        maxAge: 60 * 60 * 24 * 30, //30 dias
         path: "/",
       });
       setUser({
@@ -153,6 +163,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function logoutUser() {
     try {
       destroyCookie(null, "@barber.token", { path: "/" });
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(BARBER_SESSION_KEY);
+      }
       Router.push("/login");
       setUser(null);
     } catch (error) {
