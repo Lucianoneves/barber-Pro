@@ -3,12 +3,23 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+function migrationUrl() {
+  if (process.env.DIRECT_URL) {
+    return process.env.DIRECT_URL;
+  }
+
+  const url = process.env.DATABASE_URL || "";
+
+  // Neon pooler (PgBouncer) does not support pg_advisory_lock used by migrate
+  return url.replace("-pooler.", ".").replace(/[?&]pgbouncer=true/, "");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: migrationUrl(),
   },
 });

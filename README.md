@@ -275,7 +275,8 @@ Na pasta `barber/`, o host deve usar:
 Variáveis da API em produção:
 
 ```env
-DATABASE_URL="postgresql://...neon.../neondb?sslmode=require"
+DATABASE_URL="postgresql://...neon...-pooler.../neondb?sslmode=require"
+DIRECT_URL="postgresql://...neon.../neondb?sslmode=require"
 JWT_SECRET="segredo-longo-e-estavel"
 FRONTEND_URL="https://SEU-PROJETO.vercel.app"
 
@@ -287,6 +288,8 @@ STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
 Anote a URL pública da API, por exemplo `https://barber-api.onrender.com`.
+
+No Neon, `DATABASE_URL` pode ser a URL **pooled** (`-pooler`). O `prisma migrate deploy` precisa da conexão **direta**: use `DIRECT_URL` sem `-pooler`, ou o start já tenta tirar o `-pooler` da URL. Sem isso o deploy na Render cai com `P1002` (timeout no `pg_advisory_lock`).
 
 ### 2. Vercel (`barber-web`)
 
