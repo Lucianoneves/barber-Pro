@@ -1,8 +1,9 @@
-import { NextFunction, Request, response, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { verify } from "jsonwebtoken";
 
 interface Payload {
   sub: string;
+  role?: string;
 }
 
 export function isAuthenticated(
@@ -19,7 +20,11 @@ export function isAuthenticated(
   const [, token] = authToken.split(" ");
 
   try {
-    const { sub } = verify(token, process.env.JWT_SECRET) as Payload;
+    const { sub, role } = verify(token, process.env.JWT_SECRET) as Payload;
+
+    if (role === "customer") {
+      return response.status(401).end();
+    }
 
     request.user_id = sub;
 

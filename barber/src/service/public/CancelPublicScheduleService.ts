@@ -1,54 +1,26 @@
 import prismaClient from "../../prisma";
-import { isValidPhone, normalizePhone } from "../../utils/phone";
 
 interface CancelPublicScheduleRequest {
-  slug: string;
-  phone: string;
+  shop_id: string;
+  customer_id: string;
   schedule_id: string;
 }
 
 class CancelPublicScheduleService {
-  async execute({ slug, phone, schedule_id }: CancelPublicScheduleRequest) {
-    const customerPhone = normalizePhone(phone);
-
-    if (!isValidPhone(customerPhone) || !schedule_id) {
-      throw new Error("Informe o telefone e o agendamento");
-    }
-
-    const shop = await prismaClient.user.findFirst({
-      where: {
-        slug,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!shop) {
-      throw new Error("Barbearia não encontrada");
-    }
-
-    const customer = await prismaClient.customer.findUnique({
-      where: {
-        user_id_phone: {
-          user_id: shop.id,
-          phone: customerPhone,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!customer) {
-      throw new Error("Cliente não encontrado nesta barbearia");
+  async execute({
+    shop_id,
+    customer_id,
+    schedule_id,
+  }: CancelPublicScheduleRequest) {
+    if (!schedule_id || !customer_id) {
+      throw new Error("Informe o agendamento");
     }
 
     const schedule = await prismaClient.service.findFirst({
       where: {
         id: schedule_id,
-        user_id: shop.id,
-        customer_id: customer.id,
+        user_id: shop_id,
+        customer_id,
       },
     });
 

@@ -13,8 +13,6 @@ class LookupPublicCustomerService {
     if (!isValidPhone(customerPhone)) {
       return {
         exists: false,
-        name: null,
-        schedules: [],
       };
     }
 
@@ -39,47 +37,12 @@ class LookupPublicCustomerService {
         },
       },
       select: {
-        name: true,
-        services: {
-          where: {
-            scheduled_at: {
-              gte: new Date(),
-            },
-          },
-          select: {
-            id: true,
-            scheduled_at: true,
-            haircut: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-              },
-            },
-          },
-          orderBy: {
-            scheduled_at: "asc",
-          },
-        },
+        id: true,
       },
     });
 
-    if (!customer) {
-      return {
-        exists: false,
-        name: null,
-        schedules: [],
-      };
-    }
-
     return {
-      exists: true,
-      name: customer.name,
-      schedules: customer.services.map((item) => ({
-        id: item.id,
-        scheduled_at: item.scheduled_at.toISOString(),
-        haircut: item.haircut,
-      })),
+      exists: Boolean(customer),
     };
   }
 }

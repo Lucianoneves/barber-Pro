@@ -3,12 +3,18 @@ import { UpdatePublicScheduleService } from "../../service/public/UpdatePublicSc
 
 class UpdatePublicScheduleController {
   async handle(req: Request, res: Response) {
-    const { slug, phone, customer, schedule_id, haircut_id, scheduled_at } =
-      req.body;
+    const { schedule_id, haircut_id, scheduled_at, slug } = req.body;
+
+    if (slug && slug !== req.customer_slug) {
+      return res.status(401).json({
+        error: "Acesso do cliente inválido nesta barbearia",
+      });
+    }
+
     const schedule = await new UpdatePublicScheduleService().execute({
-      slug,
-      phone,
-      customer,
+      shop_id: req.customer_shop_id,
+      slug: req.customer_slug,
+      customer_id: req.customer_id,
       schedule_id,
       haircut_id,
       scheduled_at,

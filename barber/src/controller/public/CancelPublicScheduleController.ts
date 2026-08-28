@@ -3,10 +3,17 @@ import { CancelPublicScheduleService } from "../../service/public/CancelPublicSc
 
 class CancelPublicScheduleController {
   async handle(req: Request, res: Response) {
-    const { slug, phone, schedule_id } = req.body;
+    const { schedule_id, slug } = req.body;
+
+    if (slug && slug !== req.customer_slug) {
+      return res.status(401).json({
+        error: "Acesso do cliente inválido nesta barbearia",
+      });
+    }
+
     const result = await new CancelPublicScheduleService().execute({
-      slug,
-      phone,
+      shop_id: req.customer_shop_id,
+      customer_id: req.customer_id,
       schedule_id,
     });
     return res.json(result);

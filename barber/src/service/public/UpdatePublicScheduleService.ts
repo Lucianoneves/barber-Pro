@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prismaClient from "../../prisma";
-import { EnsureCustomerService } from "../customer/EnsureCustomerService";
 import { ListAvailableSlotsService } from "../schedule/ListAvailableSlotsService";
-import { isValidPhone, normalizePhone } from "../../utils/phone";
+import { signCustomerToken } from "../../utils/customerToken";
 import {
   isSameSlot,
   normalizeSlotDate,
@@ -10,9 +9,9 @@ import {
 } from "../../utils/scheduleSlots";
 
 interface UpdatePublicScheduleRequest {
+  shop_id: string;
   slug: string;
-  phone: string;
-  customer: string;
+  customer_id: string;
   schedule_id: string;
   haircut_id: string;
   scheduled_at: string;
@@ -20,30 +19,15 @@ interface UpdatePublicScheduleRequest {
 
 class UpdatePublicScheduleService {
   async execute({
+    shop_id,
     slug,
-    phone,
-    customer,
+    customer_id,
     schedule_id,
     haircut_id,
     scheduled_at,
   }: UpdatePublicScheduleRequest) {
-    const shop = await prismaClient.user.findFirst({
-      where: {
-        slug,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!shop) {
-      throw new Error("Barbearia não encontrada");
-    }
-
-    const customerPhone = normalizePhone(phone);
-
-    if (!isValidPhone(customerPhone) || !schedule_id) {
-      throw new Error("Informe o telefone e o agendamento");
+    if (!schedule_id || !customer_id) {
+      throw new Error("Agendamento não encontrado");
     }
 
     const scheduledDate = normalizeSlotDate(new Date(scheduled_at));
@@ -59,7 +43,7 @@ class UpdatePublicScheduleService {
     const haircut = await prismaClient.haircut.findFirst({
       where: {
         id: haircut_id,
-        user_id: shop.id,
+        user_id: shop_id,
       },
     });
 
@@ -67,17 +51,11 @@ class UpdatePublicScheduleService {
       throw new Error("Corte inválido para esta barbearia");
     }
 
-    const client = await new EnsureCustomerService().execute({
-      user_id: shop.id,
-      name: customer,
-      phone: customerPhone,
-    });
-
     const schedule = await prismaClient.service.findFirst({
       where: {
         id: schedule_id,
-        user_id: shop.id,
-        customer_id: client.id,
+        user_id: shop_id,
+        customer_id,
       },
     });
 
@@ -90,7 +68,7 @@ class UpdatePublicScheduleService {
     }
 
     const day = await new ListAvailableSlotsService().executeDay({
-      user_id: shop.id,
+      user_id: shop_id,
       date: toLocalDateInput(scheduledDate),
       ignore_schedule_id: schedule_id,
     });
@@ -114,12 +92,11 @@ class UpdatePublicScheduleService {
     }
 
     try {
-      return await prismaClient.service.update({
+      const updated = await prismaClient.service.update({
         where: {
           id: schedule.id,
         },
         data: {
-          customer: client.name,
           haircut_id,
           scheduled_at: scheduledDate,
         },
@@ -127,6 +104,15 @@ class UpdatePublicScheduleService {
           haircut: true,
         },
       });
+
+      return {
+        ...updated,
+        access_token: signCustomerToken({
+          customer_id,
+          shop_id,
+          slug,
+        }),
+      };
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&

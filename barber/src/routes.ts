@@ -29,8 +29,11 @@ import { LookupPublicCustomerController } from "./controller/public/LookupPublic
 import { CreatePublicScheduleController } from "./controller/public/CreatePublicScheduleController";
 import { UpdatePublicScheduleController } from "./controller/public/UpdatePublicScheduleController";
 import { CancelPublicScheduleController } from "./controller/public/CancelPublicScheduleController";
+import { CreateCustomerAccessController } from "./controller/public/CreateCustomerAccessController";
+import { ListCustomerSchedulesController } from "./controller/public/ListCustomerSchedulesController";
 
 import { isAuthenticated } from "./middlewares/isAuthenticated";
+import { isCustomerAuthenticated } from "./middlewares/isCustomerAuthenticated";
 import { WebhooksController } from "./controller/subscription/WbhooksController";
 
 import { CreatePortalController } from "./controller/subscription/CreatePortalController";
@@ -124,10 +127,24 @@ router.get(
   new LookupPublicCustomerController().handle
 );
 router.get("/public/shops/:slug", new DetailPublicShopController().handle);
+router.post(
+  "/public/customer/access",
+  new CreateCustomerAccessController().handle
+);
+router.get(
+  "/public/customer/schedules",
+  isCustomerAuthenticated,
+  new ListCustomerSchedulesController().handle
+);
 router.post("/public/schedules", new CreatePublicScheduleController().handle);
-router.put("/public/schedules", new UpdatePublicScheduleController().handle);
+router.put(
+  "/public/schedules",
+  isCustomerAuthenticated,
+  new UpdatePublicScheduleController().handle
+);
 router.delete(
   "/public/schedules",
+  isCustomerAuthenticated,
   new CancelPublicScheduleController().handle
 );
 

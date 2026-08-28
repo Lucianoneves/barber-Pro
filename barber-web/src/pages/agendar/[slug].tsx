@@ -23,6 +23,12 @@ import {
   toShopDateInput,
 } from "@/src/utils/shopTime";
 import { saveLastShop } from "@/src/utils/lastShop";
+import {
+  customerAuthHeaders,
+  clearCustomerAccess,
+  readCustomerAccess,
+  saveCustomerAccess,
+} from "@/src/utils/customerAccess";
 
 interface HaircutItem {
   id: string;
@@ -157,7 +163,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   const [shopData, setShopData] = useState(shop);
   const [phone, setPhone] = useState("");
   const [customer, setCustomer] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [knownCustomer, setKnownCustomer] = useState(false);
+  const [accessing, setAccessing] = useState(false);
   const [mySchedules, setMySchedules] = useState<CustomerSchedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [haircutId, setHaircutId] = useState(shop.haircuts[0]?.id || "");
@@ -205,6 +213,84 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     editingIdRef.current = editingId;
   }, [editingId]);
 
+  function persistAccess(token: string, name: string, currentPhone: string) {
+    if (!token || !name || !currentPhone) {
+      return;
+    }
+
+    setAccessToken(token);
+    setCustomer(name);
+    setPhone(currentPhone);
+    setKnownCustomer(true);
+    saveCustomerAccess(shop.slug, {
+      token,
+      name,
+      phone: currentPhone,
+    });
+  }
+
+  function leaveAccess() {
+    clearCustomerAccess(shop.slug);
+    setAccessToken("");
+    setKnownCustomer(false);
+    setMySchedules([]);
+    setEditingId(null);
+    setCustomer("");
+    setPhone("");
+  }
+
+  async function loadOwnSchedules(token: string) {
+    const apiClient = setupAPIClient();
+    const response = await apiClient.get("/public/customer/schedules", {
+      params: { slug: shop.slug },
+      headers: customerAuthHeaders(token),
+    });
+    setMySchedules(
+      Array.isArray(response.data?.schedules) ? response.data.schedules : []
+    );
+  }
+
+  useEffect(() => {
+    const saved = readCustomerAccess(shop.slug);
+
+    if (!saved) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function restore() {
+      try {
+        const apiClient = setupAPIClient();
+        const response = await apiClient.get("/public/customer/schedules", {
+          params: { slug: shop.slug },
+          headers: customerAuthHeaders(saved.token),
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        persistAccess(saved.token, saved.name, saved.phone);
+        setMySchedules(
+          Array.isArray(response.data?.schedules) ? response.data.schedules : []
+        );
+      } catch {
+        if (!cancelled) {
+          leaveAccess();
+        }
+      }
+    }
+
+    restore();
+
+    return () => {
+      cancelled = true;
+    };
+    // só restaura o acesso salvo nesta barbearia ao abrir a página
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop.slug]);
+
   useEffect(() => {
     async function loadSlots() {
       if (!date) {
@@ -243,38 +329,42 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     loadSlots();
   }, [date, shop.slug, editingId, slotsNonce]);
 
-  async function loadCustomer(currentPhone: string) {
-    if (!currentPhone) {
-      setKnownCustomer(false);
-      setMySchedules([]);
+  async function handleAccess() {
+    if (!phone || !customer) {
+      alert("Informe telefone e nome para acessar seus horários");
       return;
     }
 
+    setAccessing(true);
+
     try {
       const apiClient = setupAPIClient();
-      const response = await apiClient.get(
-        `/public/shops/${shop.slug}/customer`,
-        { params: { phone: currentPhone } }
-      );
+      const response = await apiClient.post("/public/customer/access", {
+        slug: shop.slug,
+        phone,
+        name: customer,
+      });
 
-      if (response.data?.exists && response.data?.name) {
-        setCustomer(response.data.name);
-        setKnownCustomer(true);
-        setMySchedules(
-          Array.isArray(response.data?.schedules) ? response.data.schedules : []
-        );
-      } else {
+      if (!response.data?.exists || !response.data?.token) {
         setKnownCustomer(false);
         setMySchedules([]);
+        alert(
+          "Ainda não há cadastro com esses dados nesta barbearia. Confirme um horário para criar o seu acesso."
+        );
+        return;
       }
-    } catch {
+
+      persistAccess(response.data.token, response.data.name, phone);
+      setMySchedules(
+        Array.isArray(response.data?.schedules) ? response.data.schedules : []
+      );
+    } catch (err) {
       setKnownCustomer(false);
       setMySchedules([]);
+      alert(getApiError(err, "Não foi possível acessar seus horários"));
+    } finally {
+      setAccessing(false);
     }
-  }
-
-  async function handlePhoneBlur() {
-    await loadCustomer(phone);
   }
 
   function resetBookingForm() {
@@ -303,19 +393,24 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
 
     try {
       const apiClient = setupAPIClient();
+      if (!accessToken) {
+        alert("Acesse seus horários com telefone e nome para cancelar");
+        return;
+      }
+
       await apiClient.delete("/public/schedules", {
         data: {
           slug: shop.slug,
-          phone,
           schedule_id: schedule.id,
         },
+        headers: customerAuthHeaders(accessToken),
       });
 
       if (editingId === schedule.id) {
         resetBookingForm();
       }
 
-      await loadCustomer(phone);
+      await loadOwnSchedules(accessToken);
       setSlotsNonce((current) => current + 1);
       alert("Agendamento cancelado");
     } catch (err) {
@@ -326,6 +421,11 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   async function handleSubmit() {
     if (!customer || !phone || !haircutId || !selectedSlot) {
       alert("Preencha nome, telefone, corte e um horário livre");
+      return;
+    }
+
+    if (editingId && !accessToken) {
+      alert("Acesse seus horários com telefone e nome para alterar");
       return;
     }
 
@@ -342,9 +442,13 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
         schedule_id: editingId || undefined,
       };
       const response = editingId
-        ? await apiClient.put("/public/schedules", payload)
+        ? await apiClient.put("/public/schedules", payload, {
+            headers: customerAuthHeaders(accessToken),
+          })
         : await apiClient.post("/public/schedules", payload);
 
+      const nextToken = response.data.access_token || accessToken;
+      persistAccess(nextToken, customer, phone);
       setDone({
         scheduled_at: response.data.scheduled_at,
         haircut: response.data.haircut,
@@ -352,7 +456,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
       });
       setEditingId(null);
       saveLastShop({ slug: shop.slug, name: shop.name });
-      await loadCustomer(phone);
+      if (nextToken) {
+        await loadOwnSchedules(nextToken);
+      }
     } catch (err) {
       alert(getApiError(err, editingId ? "Erro ao alterar" : "Erro ao agendar"));
     } finally {
@@ -383,8 +489,8 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 : "Agendamento confirmado"}
             </Heading>
             <Text color="white" mb={2}>
-              {customer}, você está cadastrado em {shop.name} com o telefone
-              informado.
+              {customer}, este acesso é só seu em {shop.name}. Outros clientes
+              não veem os seus horários.
             </Text>
             <Text color="gray.300" mb={2}>
               Corte: {done.haircut.name}
@@ -456,13 +562,14 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 color="white"
                 borderColor="gray.700"
                 value={phone}
+                isReadOnly={knownCustomer}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   setPhone(e.target.value);
                   setEditingId(null);
                   setMySchedules([]);
                   setKnownCustomer(false);
+                  setAccessToken("");
                 }}
-                onBlur={handlePhoneBlur}
               />
 
               <Input
@@ -474,18 +581,56 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 color="white"
                 borderColor="gray.700"
                 value={customer}
+                isReadOnly={knownCustomer}
                 onChange={(e: ChangeEvent<HTMLInputElement>) =>
                   setCustomer(e.target.value)
                 }
               />
 
-              {knownCustomer && (
-                <Text w="85%" mb={3} color="green.300" fontSize="sm">
-                  Encontramos seu cadastro nesta barbearia.
-                </Text>
+              {knownCustomer ? (
+                <Flex
+                  w="85%"
+                  mb={3}
+                  direction={{ base: "column", sm: "row" }}
+                  align={{ base: "flex-start", sm: "center" }}
+                  justify="space-between"
+                  gap={2}
+                >
+                  <Text color="green.300" fontSize="sm">
+                    Acesso só seu nesta barbearia. Ninguém vê a agenda de outro
+                    cliente.
+                  </Text>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    color="gray.400"
+                    onClick={leaveAccess}
+                  >
+                    Sair do meu acesso
+                  </Button>
+                </Flex>
+              ) : (
+                <>
+                  <Text w="85%" mb={3} color="gray.400" fontSize="sm">
+                    Telefone e nome abrem só os seus horários nesta casa. Horários
+                    ocupados aparecem sem o nome de outros clientes.
+                  </Text>
+                  <Button
+                    w="85%"
+                    mb={4}
+                    size="md"
+                    variant="outline"
+                    color="white"
+                    borderColor="gray.600"
+                    isLoading={accessing}
+                    onClick={handleAccess}
+                  >
+                    Acessar meus horários
+                  </Button>
+                </>
               )}
 
-              {mySchedules.length > 0 && (
+              {knownCustomer && mySchedules.length > 0 && (
                 <Flex w="85%" mb={4} direction="column">
                   <Text mb={2} color="gray.300" fontWeight="bold">
                     Seus próximos horários

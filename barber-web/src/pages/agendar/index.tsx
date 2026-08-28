@@ -5,6 +5,7 @@ import { Flex, Heading, Text } from "@chakra-ui/react";
 import { PublicHeader } from "@/src/components/publicHeader";
 import { setupAPIClient } from "@/src/services/api";
 import { readLastShop } from "@/src/utils/lastShop";
+import { readCustomerAccess } from "@/src/utils/customerAccess";
 
 interface ShopItem {
   name: string;
@@ -82,9 +83,14 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
   const [lastShop, setLastShop] = useState<{ slug: string; name: string } | null>(
     null
   );
+  const [hasCustomerAccess, setHasCustomerAccess] = useState(false);
 
   useEffect(() => {
-    setLastShop(readLastShop());
+    const savedShop = readLastShop();
+    setLastShop(savedShop);
+    setHasCustomerAccess(
+      Boolean(savedShop && readCustomerAccess(savedShop.slug))
+    );
 
     if (initialShops.length > 0) {
       setLoading(false);
@@ -124,16 +130,21 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
             Escolha a barbearia
           </Heading>
           <Text mb={6} color="gray.300">
-            Toque na barbearia desejada para agendar. No primeiro horário você
-            já fica cadastrado nessa casa.
+            Toque na barbearia desejada para agendar. Depois do primeiro horário
+            você fica com um acesso só seu nessa casa, para alterar ou cancelar
+            sem ver a agenda de outros clientes.
           </Text>
 
           {lastShop && (
             <ShopCard
               href={`/agendar/${lastShop.slug}`}
               title={lastShop.name}
-              subtitle="Você já agendou aqui. Seu cadastro fica nesta barbearia pelo telefone."
-              action="Continuar"
+              subtitle={
+                hasCustomerAccess
+                  ? "Seu acesso já está nesta casa. Só você vê, altera ou cancela os seus horários."
+                  : "Você já agendou aqui. Seu cadastro fica nesta barbearia pelo telefone e nome."
+              }
+              action={hasCustomerAccess ? "Meus horários" : "Continuar"}
               highlight
             />
           )}
