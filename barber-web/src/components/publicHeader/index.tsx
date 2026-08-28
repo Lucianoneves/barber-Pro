@@ -1,5 +1,8 @@
+import { useContext } from "react";
 import { Flex, Text, Button } from "@chakra-ui/react";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { AuthContext } from "@/src/context/AuthContext";
 
 export function PublicHeader({
   actionHref = "/login",
@@ -8,6 +11,18 @@ export function PublicHeader({
   actionHref?: string;
   actionLabel?: string;
 }) {
+  const router = useRouter();
+  const { isAuthenticated, logoutUser } = useContext(AuthContext);
+
+  async function handleExit() {
+    if (isAuthenticated) {
+      await logoutUser();
+      return;
+    }
+
+    router.push("/login");
+  }
+
   return (
     <Flex
       w="100%"
@@ -17,6 +32,7 @@ export function PublicHeader({
       px={4}
       align="center"
       justify="space-between"
+      gap={3}
     >
       <Link href="/agendar">
         <Flex cursor="pointer" userSelect="none" direction="row">
@@ -33,18 +49,30 @@ export function PublicHeader({
           </Text>
         </Flex>
       </Link>
-      <Link href={actionHref}>
+      <Flex align="center" gap={2}>
         <Button
-          as="span"
           size="sm"
-          bg="button.cta"
-          color="gray.900"
-          _hover={{ bg: "#FFb13e" }}
-          cursor="pointer"
+          variant="outline"
+          color="white"
+          borderColor="gray.600"
+          _hover={{ bg: "barber.400" }}
+          onClick={handleExit}
         >
-          {actionLabel}
+          Sair
         </Button>
-      </Link>
+        <Link href={actionHref}>
+          <Button
+            as="span"
+            size="sm"
+            bg="button.cta"
+            color="gray.900"
+            _hover={{ bg: "#FFb13e" }}
+            cursor="pointer"
+          >
+            {actionLabel}
+          </Button>
+        </Link>
+      </Flex>
     </Flex>
   );
 }
