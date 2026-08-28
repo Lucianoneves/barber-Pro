@@ -18,10 +18,10 @@ import { setupAPIClient } from "@/src/services/api";
 import { ModalInfo } from "../../components/modal";
 import { BookingCalendar } from "@/src/components/bookingCalendar";
 import {
-  addShopDays,
+  formatShopDateTime,
   formatShopTime,
   shopTodayInput,
-  shopWeekday,
+  toShopDateInput,
 } from "@/src/utils/shopTime";
 import { normalizeDaySlots, SlotItem } from "@/src/utils/slots";
 
@@ -71,19 +71,6 @@ interface ScheduleProps {
   slotInterval: number;
 }
 
-function nextOpenDate(closedWeekdays: number[]) {
-  const today = shopTodayInput();
-
-  for (let offset = 0; offset < 14; offset += 1) {
-    const date = addShopDays(today, offset);
-    if (!closedWeekdays.includes(shopWeekday(date))) {
-      return date;
-    }
-  }
-
-  return today;
-}
-
 function slotTime(value: string) {
   const date = new Date(value);
   date.setSeconds(0, 0);
@@ -98,11 +85,15 @@ export default function Dashboard({
   const [list, setList] = useState(schedules || []);
   const [service, setService] = useState<SchudelItem | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [date, setDate] = useState(() => nextOpenDate(closedWeekdays));
+  const [date, setDate] = useState(() => shopTodayInput());
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [dayClosed, setDayClosed] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotError, setSlotError] = useState("");
+
+  const dayList = list.filter(
+    (item) => toShopDateInput(item.scheduled_at) === date
+  );
 
   const [isMobile] = useMediaQuery("(max-width: 500px)");
 
@@ -302,11 +293,17 @@ export default function Dashboard({
             </Flex>
           </Flex>
 
-          {list.length === 0 && (
-            <Text color="gray.400">Nenhum cliente agendado no momento.</Text>
+          <Text mb={3} color="gray.300" fontWeight="bold">
+            Agendados do dia
+          </Text>
+
+          {dayList.length === 0 && (
+            <Text color="gray.400" mb={4}>
+              Nenhum cliente agendado neste dia.
+            </Text>
           )}
 
-          {list.map((item) => (
+          {dayList.map((item) => (
             <ChakraLink
               onClick={() => handleOpenModal(item)}
               key={item?.id}
@@ -341,7 +338,7 @@ export default function Dashboard({
 
                 <Text fontWeight="bold">{item?.haircut?.name}</Text>
                 <Text fontWeight="bold">
-                  {formatScheduleDateTime(item?.scheduled_at)}
+                  {formatShopDateTime(item?.scheduled_at)}
                 </Text>
                 <Text fontWeight="bold">R$ {item?.haircut?.price}</Text>
               </Flex>
