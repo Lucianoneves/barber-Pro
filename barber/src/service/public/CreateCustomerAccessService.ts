@@ -1,5 +1,4 @@
 import prismaClient from "../../prisma";
-import { namesMatch } from "../../utils/personName";
 import { signCustomerToken } from "../../utils/customerToken";
 import { isValidPhone, normalizePhone } from "../../utils/phone";
 import { ListOwnPublicSchedulesService } from "./ListOwnPublicSchedulesService";
@@ -7,16 +6,14 @@ import { ListOwnPublicSchedulesService } from "./ListOwnPublicSchedulesService";
 interface CreateCustomerAccessRequest {
   slug: string;
   phone: string;
-  name: string;
 }
 
 class CreateCustomerAccessService {
-  async execute({ slug, phone, name }: CreateCustomerAccessRequest) {
+  async execute({ slug, phone }: CreateCustomerAccessRequest) {
     const customerPhone = normalizePhone(phone);
-    const customerName = (name || "").trim();
 
-    if (!isValidPhone(customerPhone) || !customerName) {
-      throw new Error("Informe o telefone e o nome");
+    if (!isValidPhone(customerPhone)) {
+      throw new Error("Informe um telefone válido");
     }
 
     const shop = await prismaClient.user.findFirst({
@@ -55,12 +52,6 @@ class CreateCustomerAccessService {
         phone: customerPhone,
         schedules: [],
       };
-    }
-
-    if (!namesMatch(customer.name, customerName)) {
-      throw new Error(
-        "Telefone ou nome não conferem com o cadastro desta barbearia"
-      );
     }
 
     const token = signCustomerToken({

@@ -329,9 +329,11 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     loadSlots();
   }, [date, shop.slug, editingId, slotsNonce]);
 
-  async function handleAccess() {
-    if (!phone || !customer) {
-      alert("Informe telefone e nome para acessar seus horários");
+  async function handleAccess(fromBlur = false) {
+    if (!phone) {
+      if (!fromBlur) {
+        alert("Informe o telefone para acessar seus horários");
+      }
       return;
     }
 
@@ -342,15 +344,11 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
       const response = await apiClient.post("/public/customer/access", {
         slug: shop.slug,
         phone,
-        name: customer,
       });
 
       if (!response.data?.exists || !response.data?.token) {
         setKnownCustomer(false);
         setMySchedules([]);
-        alert(
-          "Ainda não há cadastro com esses dados nesta barbearia. Confirme um horário para criar o seu acesso."
-        );
         return;
       }
 
@@ -361,7 +359,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     } catch (err) {
       setKnownCustomer(false);
       setMySchedules([]);
-      alert(getApiError(err, "Não foi possível acessar seus horários"));
+      if (!fromBlur) {
+        alert(getApiError(err, "Não foi possível acessar seus horários"));
+      }
     } finally {
       setAccessing(false);
     }
@@ -394,7 +394,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     try {
       const apiClient = setupAPIClient();
       if (!accessToken) {
-        alert("Acesse seus horários com telefone e nome para cancelar");
+        alert("Acesse seus horários com o telefone para cancelar");
         return;
       }
 
@@ -425,7 +425,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
     }
 
     if (editingId && !accessToken) {
-      alert("Acesse seus horários com telefone e nome para alterar");
+      alert("Acesse seus horários com o telefone para alterar");
       return;
     }
 
@@ -570,6 +570,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                   setKnownCustomer(false);
                   setAccessToken("");
                 }}
+                onBlur={() => handleAccess(true)}
               />
 
               <Input
@@ -597,8 +598,8 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                   gap={2}
                 >
                   <Text color="green.300" fontSize="sm">
-                    Acesso só seu nesta barbearia. Ninguém vê a agenda de outro
-                    cliente.
+                    Este telefone abre só os seus horários nesta casa. Horários
+                    ocupados aparecem sem o nome de outros clientes.
                   </Text>
                   <Button
                     size="sm"
@@ -612,8 +613,8 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
               ) : (
                 <>
                   <Text w="85%" mb={3} color="gray.400" fontSize="sm">
-                    Telefone e nome abrem só os seus horários nesta casa. Horários
-                    ocupados aparecem sem o nome de outros clientes.
+                    Somente o telefone abre só os seus horários nesta casa.
+                    Horários ocupados aparecem sem o nome de outros clientes.
                   </Text>
                   <Button
                     w="85%"
@@ -623,7 +624,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                     color="white"
                     borderColor="gray.600"
                     isLoading={accessing}
-                    onClick={handleAccess}
+                    onClick={() => handleAccess()}
                   >
                     Acessar meus horários
                   </Button>

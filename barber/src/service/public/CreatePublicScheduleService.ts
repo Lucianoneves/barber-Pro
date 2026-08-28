@@ -1,6 +1,5 @@
 import prismaClient from "../../prisma";
 import { NewScheduleService } from "../schedule/NewScheduleService";
-import { namesMatch } from "../../utils/personName";
 import { signCustomerToken } from "../../utils/customerToken";
 import { isValidPhone, normalizePhone } from "../../utils/phone";
 
@@ -39,24 +38,6 @@ class CreatePublicScheduleService {
 
     if (!isValidPhone(customerPhone)) {
       throw new Error("Informe um telefone válido");
-    }
-
-    const existing = await prismaClient.customer.findUnique({
-      where: {
-        user_id_phone: {
-          user_id: shop.id,
-          phone: customerPhone,
-        },
-      },
-      select: {
-        name: true,
-      },
-    });
-
-    if (existing && !namesMatch(existing.name, customer)) {
-      throw new Error(
-        "Este telefone já tem cadastro nesta barbearia. Use o mesmo nome para acessar seus horários."
-      );
     }
 
     const schedule = await new NewScheduleService().execute({

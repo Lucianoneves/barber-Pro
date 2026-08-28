@@ -11,7 +11,7 @@ export function isCustomerAuthenticated(
 
   if (!token) {
     return response.status(401).json({
-      error: "Acesse seus horários com telefone e nome",
+      error: "Acesse seus horários com o telefone",
     });
   }
 

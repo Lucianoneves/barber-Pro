@@ -142,7 +142,7 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
               subtitle={
                 hasCustomerAccess
                   ? "Seu acesso já está nesta casa. Só você vê, altera ou cancela os seus horários."
-                  : "Você já agendou aqui. Seu cadastro fica nesta barbearia pelo telefone e nome."
+                  : "Você já agendou aqui. Seu cadastro fica nesta barbearia pelo telefone."
               }
               action={hasCustomerAccess ? "Meus horários" : "Continuar"}
               highlight

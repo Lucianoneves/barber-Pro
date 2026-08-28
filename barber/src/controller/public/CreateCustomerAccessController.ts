@@ -3,11 +3,10 @@ import { CreateCustomerAccessService } from "../../service/public/CreateCustomer
 
 class CreateCustomerAccessController {
   async handle(req: Request, res: Response) {
-    const { slug, phone, name } = req.body;
+    const { slug, phone } = req.body;
     const access = await new CreateCustomerAccessService().execute({
       slug,
       phone,
-      name,
     });
     return res.json(access);
   }
