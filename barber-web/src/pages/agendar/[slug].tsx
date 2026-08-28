@@ -26,7 +26,6 @@ import { saveLastShop } from "@/src/utils/lastShop";
 import {
   customerAuthHeaders,
   clearCustomerAccess,
-  readCustomerAccess,
   saveCustomerAccess,
 } from "@/src/utils/customerAccess";
 
@@ -249,47 +248,6 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
       Array.isArray(response.data?.schedules) ? response.data.schedules : []
     );
   }
-
-  useEffect(() => {
-    const saved = readCustomerAccess(shop.slug);
-
-    if (!saved) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function restore() {
-      try {
-        const apiClient = setupAPIClient();
-        const response = await apiClient.get("/public/customer/schedules", {
-          params: { slug: shop.slug },
-          headers: customerAuthHeaders(saved.token),
-        });
-
-        if (cancelled) {
-          return;
-        }
-
-        persistAccess(saved.token, saved.name, saved.phone);
-        setMySchedules(
-          Array.isArray(response.data?.schedules) ? response.data.schedules : []
-        );
-      } catch {
-        if (!cancelled) {
-          leaveAccess();
-        }
-      }
-    }
-
-    restore();
-
-    return () => {
-      cancelled = true;
-    };
-    // só restaura o acesso salvo nesta barbearia ao abrir a página
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shop.slug]);
 
   useEffect(() => {
     async function loadSlots() {
@@ -557,7 +515,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 size="lg"
                 type="tel"
                 inputMode="numeric"
-                autoComplete="tel"
+                autoComplete="off"
                 bg="barber.900"
                 color="white"
                 borderColor="gray.700"
@@ -578,6 +536,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 w="85%"
                 mb={3}
                 size="lg"
+                autoComplete="off"
                 bg="barber.900"
                 color="white"
                 borderColor="gray.700"
