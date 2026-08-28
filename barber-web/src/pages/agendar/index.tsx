@@ -112,6 +112,13 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
     loadShops();
   }, [initialShops.length]);
 
+  const lastShopInList = lastShop
+    ? shops.find((shop) => shop.slug === lastShop.slug)
+    : undefined;
+  const otherShops = lastShopInList
+    ? shops.filter((shop) => shop.slug !== lastShopInList.slug)
+    : shops;
+
   return (
     <>
       <Head>
@@ -135,10 +142,10 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
             sem ver a agenda de outros clientes.
           </Text>
 
-          {lastShop && (
+          {lastShopInList && (
             <ShopCard
-              href={`/agendar/${lastShop.slug}`}
-              title={lastShop.name}
+              href={`/agendar/${lastShopInList.slug}`}
+              title={lastShopInList.name}
               subtitle={
                 hasCustomerAccess
                   ? "Seu acesso já está nesta casa. Só você vê, altera ou cancela os seus horários."
@@ -159,7 +166,7 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
             </Text>
           )}
 
-          {shops.map((shop) => (
+          {otherShops.map((shop) => (
             <ShopCard
               key={shop.slug}
               href={`/agendar/${shop.slug}`}
