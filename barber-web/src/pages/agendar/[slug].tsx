@@ -22,6 +22,7 @@ import {
   shopWeekday,
   toShopDateInput,
 } from "@/src/utils/shopTime";
+import { saveLastShop } from "@/src/utils/lastShop";
 
 interface HaircutItem {
   id: string;
@@ -297,6 +298,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
         updated: Boolean(editingId),
       });
       setEditingId(null);
+      saveLastShop({ slug: shop.slug, name: shop.name });
       await loadCustomer(phone);
     } catch (err) {
       alert(getApiError(err, editingId ? "Erro ao alterar" : "Erro ao agendar"));
@@ -328,7 +330,8 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 : "Agendamento confirmado"}
             </Heading>
             <Text color="white" mb={2}>
-              {customer}, você está cadastrado em {shop.name}.
+              {customer}, você está cadastrado em {shop.name} com o telefone
+              informado.
             </Text>
             <Text color="gray.300" mb={2}>
               Corte: {done.haircut.name}

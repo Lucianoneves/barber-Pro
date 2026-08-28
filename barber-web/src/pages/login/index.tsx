@@ -83,15 +83,19 @@ export default function Login() {
           </Button>
 
           <Link href="/agendar">
-            <Text
+            <Button
+              as="span"
+              w="100%"
+              mt={4}
+              size="lg"
+              variant="outline"
+              color="white"
+              borderColor="button.cta"
+              _hover={{ bg: "barber.400" }}
               cursor="pointer"
-              color="button.default"
-              fontSize={16}
-              textAlign="center"
-              mt={6}
             >
               Quero agendar um corte
-            </Text>
+            </Button>
           </Link>
 
           <Link href="/register">
@@ -102,7 +106,7 @@ export default function Login() {
               textAlign="center"
               mt={6}
             >
-              Não tem uma conta? <strong>Cadastre-se</strong>
+              Não tem uma conta? <strong>Cadastre sua barbearia</strong>
             </Text>
           </Link>
         </Flex>

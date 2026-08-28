@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Flex, Heading, Text, Button } from "@chakra-ui/react";
 import { PublicHeader } from "@/src/components/publicHeader";
 import { setupAPIClient } from "@/src/services/api";
+import { readLastShop } from "@/src/utils/lastShop";
 
 interface ShopItem {
   name: string;
@@ -15,7 +17,36 @@ interface AgendarProps {
   shops: ShopItem[];
 }
 
-export default function Agendar({ shops }: AgendarProps) {
+export default function Agendar({ shops: initialShops }: AgendarProps) {
+  const [shops, setShops] = useState<ShopItem[]>(initialShops);
+  const [loading, setLoading] = useState(initialShops.length === 0);
+  const [lastShop, setLastShop] = useState<{ slug: string; name: string } | null>(
+    null
+  );
+
+  useEffect(() => {
+    setLastShop(readLastShop());
+
+    if (initialShops.length > 0) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadShops() {
+      try {
+        const apiClient = setupAPIClient();
+        const response = await apiClient.get("/public/shops");
+        setShops(Array.isArray(response.data) ? response.data : []);
+      } catch {
+        setShops([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadShops();
+  }, [initialShops.length]);
+
   return (
     <>
       <Head>
@@ -34,12 +65,56 @@ export default function Agendar({ shops }: AgendarProps) {
             Escolha a barbearia
           </Heading>
           <Text mb={6} color="gray.300">
-            Você será cadastrado na casa escolhida com o seu telefone.
+            Escolha a casa, informe seu telefone e agende. No primeiro horário
+            você já fica cadastrado nessa barbearia.
           </Text>
 
-          {shops.length === 0 && (
+          {lastShop && (
+            <Flex
+              w="100%"
+              bg="barber.400"
+              p={4}
+              rounded={6}
+              mb={6}
+              direction={{ base: "column", sm: "row" }}
+              align={{ base: "flex-start", sm: "center" }}
+              justify="space-between"
+              gap={4}
+              borderWidth={1}
+              borderColor="orange.900"
+            >
+              <Flex direction="column">
+                <Text color="orange.900" fontSize="sm" fontWeight="bold">
+                  Você já agendou aqui
+                </Text>
+                <Text fontWeight="bold" fontSize="lg" color="white">
+                  {lastShop.name}
+                </Text>
+                <Text color="gray.400" fontSize="sm">
+                  Seu cadastro fica nesta barbearia pelo telefone.
+                </Text>
+              </Flex>
+              <Link href={`/agendar/${lastShop.slug}`}>
+                <Button
+                  as="span"
+                  bg="button.cta"
+                  color="gray.900"
+                  _hover={{ bg: "#FFb13e" }}
+                  cursor="pointer"
+                >
+                  Continuar agendamento
+                </Button>
+              </Link>
+            </Flex>
+          )}
+
+          {loading && (
+            <Text color="gray.400">Carregando barbearias...</Text>
+          )}
+
+          {!loading && shops.length === 0 && (
             <Text color="gray.400">
-              Nenhuma barbearia com cortes disponíveis no momento.
+              Nenhuma barbearia cadastrada no momento.
             </Text>
           )}
 
@@ -68,17 +143,28 @@ export default function Agendar({ shops }: AgendarProps) {
                   {shop.haircuts_count === 1 ? "corte" : "cortes"}
                 </Text>
               </Flex>
-              <Link href={`/agendar/${shop.slug}`}>
+              {shop.haircuts_count === 0 ? (
                 <Button
                   as="span"
-                  bg="button.cta"
-                  color="gray.900"
-                  _hover={{ bg: "#FFb13e" }}
-                  cursor="pointer"
+                  bg="barber.900"
+                  color="gray.500"
+                  cursor="not-allowed"
                 >
-                  Agendar
+                  Sem cortes
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/agendar/${shop.slug}`}>
+                  <Button
+                    as="span"
+                    bg="button.cta"
+                    color="gray.900"
+                    _hover={{ bg: "#FFb13e" }}
+                    cursor="pointer"
+                  >
+                    Agendar
+                  </Button>
+                </Link>
+              )}
             </Flex>
           ))}
         </Flex>

@@ -3,13 +3,6 @@ import prismaClient from "../../prisma";
 class ListPublicShopsService {
   async execute() {
     const shops = await prismaClient.user.findMany({
-      where: {
-        haircuts: {
-          some: {
-            status: true,
-          },
-        },
-      },
       select: {
         name: true,
         slug: true,

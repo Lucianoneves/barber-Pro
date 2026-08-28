@@ -90,6 +90,22 @@ export default function Register() {
             Acessar
           </Button>
 
+          <Link href="/agendar">
+            <Button
+              as="span"
+              w="100%"
+              mt={4}
+              size="lg"
+              variant="outline"
+              color="white"
+              borderColor="button.cta"
+              _hover={{ bg: "barber.400" }}
+              cursor="pointer"
+            >
+              Quero agendar um corte
+            </Button>
+          </Link>
+
           <Link href="/login">
             <Text
               cursor="pointer"
