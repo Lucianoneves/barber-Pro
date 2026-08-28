@@ -58,7 +58,6 @@ export function Sidebar({ children }: { children: ReactNode }) {
         placement="left"
         returnFocusOnClose={false}
         onOverlayClick={onClose}
-        size="full"
         onClose={onClose}
       >
         <DrawerContent>
@@ -110,7 +109,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
         <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
       </Flex>
 
-      <Flex direction="column" h="calc(100% - 5rem)">
+      <Flex direction="column">
         {LinkItems.map((link) => (
           <NavItem icon={link.icon} route={link.route} key={link.name}>
             {link.name}
@@ -121,7 +120,6 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           align="center"
           p="4"
           mx="4"
-          mt="auto"
           mb={6}
           borderRadius="lg"
           role="group"
