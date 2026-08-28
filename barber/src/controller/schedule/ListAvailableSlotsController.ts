@@ -6,9 +6,15 @@ class ListAvailableSlotsController {
     const user_id = req.user_id;
     const date = String(req.query.date || "");
     const listSlots = new ListAvailableSlotsService();
-    const slots = await listSlots.execute({ user_id, date });
+    const day = await listSlots.executeDay({ user_id, date });
 
-    return res.json(slots.map((slot) => slot.toISOString()));
+    return res.json({
+      closed: day.closed,
+      slots: day.slots.map((slot) => ({
+        at: slot.at.toISOString(),
+        status: slot.status,
+      })),
+    });
   }
 }
 

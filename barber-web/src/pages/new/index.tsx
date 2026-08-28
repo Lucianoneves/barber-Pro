@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { AxiosError } from "axios";
 import { formatShopTime, shopTodayInput } from "@/src/utils/shopTime";
 import { formatPhone, formatPhoneInput } from "@/src/utils/phone";
+import { normalizeDaySlots } from "@/src/utils/slots";
 
 interface HaircutProps {
   id: string;
@@ -122,7 +123,14 @@ export default function New({ haircuts, customers }: NewProps) {
         const response = await apiClient.get("/schedules/slots", {
           params: { date },
         });
-        setSlots(Array.isArray(response.data) ? response.data : []);
+        const parsed = normalizeDaySlots(response.data);
+        setSlots(
+          parsed.closed
+            ? []
+            : parsed.slots
+                .filter((slot) => slot.status === "available" && slot.at)
+                .map((slot) => slot.at)
+        );
       } catch {
         setSlots([]);
       } finally {
