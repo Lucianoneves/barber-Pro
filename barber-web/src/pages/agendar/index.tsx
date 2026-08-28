@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
-import { Flex, Heading, Text, Button } from "@chakra-ui/react";
+import NextLink from "next/link";
+import { Flex, Heading, Text } from "@chakra-ui/react";
 import { PublicHeader } from "@/src/components/publicHeader";
 import { setupAPIClient } from "@/src/services/api";
 import { readLastShop } from "@/src/utils/lastShop";
@@ -15,6 +15,65 @@ interface ShopItem {
 
 interface AgendarProps {
   shops: ShopItem[];
+}
+
+function ShopCard({
+  href,
+  title,
+  subtitle,
+  extra,
+  action,
+  highlight = false,
+}: {
+  href: string;
+  title: string;
+  subtitle: string;
+  extra?: string;
+  action: string;
+  highlight?: boolean;
+}) {
+  return (
+    <NextLink href={href} style={{ width: "100%", textDecoration: "none" }}>
+      <Flex
+        w="100%"
+        bg="barber.400"
+        p={4}
+        rounded={6}
+        mb={4}
+        direction={{ base: "column", sm: "row" }}
+        align={{ base: "flex-start", sm: "center" }}
+        justify="space-between"
+        gap={4}
+        cursor="pointer"
+        borderWidth={highlight ? 1 : 0}
+        borderColor="orange.900"
+        _hover={{ opacity: 0.92 }}
+      >
+        <Flex direction="column">
+          <Text fontWeight="bold" fontSize="lg" color="white">
+            {title}
+          </Text>
+          <Text color="gray.400">{subtitle}</Text>
+          {extra && (
+            <Text color="gray.500" fontSize="sm">
+              {extra}
+            </Text>
+          )}
+        </Flex>
+        <Flex
+          as="span"
+          bg="button.cta"
+          color="gray.900"
+          fontWeight="bold"
+          px={6}
+          py={2}
+          rounded={6}
+        >
+          {action}
+        </Flex>
+      </Flex>
+    </NextLink>
+  );
 }
 
 export default function Agendar({ shops: initialShops }: AgendarProps) {
@@ -65,47 +124,18 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
             Escolha a barbearia
           </Heading>
           <Text mb={6} color="gray.300">
-            Escolha a casa, informe seu telefone e agende. No primeiro horário
-            você já fica cadastrado nessa barbearia.
+            Toque na barbearia desejada para agendar. No primeiro horário você
+            já fica cadastrado nessa casa.
           </Text>
 
           {lastShop && (
-            <Flex
-              w="100%"
-              bg="barber.400"
-              p={4}
-              rounded={6}
-              mb={6}
-              direction={{ base: "column", sm: "row" }}
-              align={{ base: "flex-start", sm: "center" }}
-              justify="space-between"
-              gap={4}
-              borderWidth={1}
-              borderColor="orange.900"
-            >
-              <Flex direction="column">
-                <Text color="orange.900" fontSize="sm" fontWeight="bold">
-                  Você já agendou aqui
-                </Text>
-                <Text fontWeight="bold" fontSize="lg" color="white">
-                  {lastShop.name}
-                </Text>
-                <Text color="gray.400" fontSize="sm">
-                  Seu cadastro fica nesta barbearia pelo telefone.
-                </Text>
-              </Flex>
-              <Link href={`/agendar/${lastShop.slug}`}>
-                <Button
-                  as="span"
-                  bg="button.cta"
-                  color="gray.900"
-                  _hover={{ bg: "#FFb13e" }}
-                  cursor="pointer"
-                >
-                  Continuar agendamento
-                </Button>
-              </Link>
-            </Flex>
+            <ShopCard
+              href={`/agendar/${lastShop.slug}`}
+              title={lastShop.name}
+              subtitle="Você já agendou aqui. Seu cadastro fica nesta barbearia pelo telefone."
+              action="Continuar"
+              highlight
+            />
           )}
 
           {loading && (
@@ -119,53 +149,16 @@ export default function Agendar({ shops: initialShops }: AgendarProps) {
           )}
 
           {shops.map((shop) => (
-            <Flex
+            <ShopCard
               key={shop.slug}
-              w="100%"
-              bg="barber.400"
-              p={4}
-              rounded={6}
-              mb={4}
-              direction={{ base: "column", sm: "row" }}
-              align={{ base: "flex-start", sm: "center" }}
-              justify="space-between"
-              gap={4}
-            >
-              <Flex direction="column">
-                <Text fontWeight="bold" fontSize="lg" color="white">
-                  {shop.name}
-                </Text>
-                <Text color="gray.400">
-                  {shop.endereco || "Endereço não informado"}
-                </Text>
-                <Text color="gray.500" fontSize="sm">
-                  {shop.haircuts_count}{" "}
-                  {shop.haircuts_count === 1 ? "corte" : "cortes"}
-                </Text>
-              </Flex>
-              {shop.haircuts_count === 0 ? (
-                <Button
-                  as="span"
-                  bg="barber.900"
-                  color="gray.500"
-                  cursor="not-allowed"
-                >
-                  Sem cortes
-                </Button>
-              ) : (
-                <Link href={`/agendar/${shop.slug}`}>
-                  <Button
-                    as="span"
-                    bg="button.cta"
-                    color="gray.900"
-                    _hover={{ bg: "#FFb13e" }}
-                    cursor="pointer"
-                  >
-                    Agendar
-                  </Button>
-                </Link>
-              )}
-            </Flex>
+              href={`/agendar/${shop.slug}`}
+              title={shop.name}
+              subtitle={shop.endereco || "Endereço não informado"}
+              extra={`${shop.haircuts_count} ${
+                shop.haircuts_count === 1 ? "corte" : "cortes"
+              }`}
+              action="Escolher"
+            />
           ))}
         </Flex>
       </Flex>
