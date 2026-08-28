@@ -5,6 +5,7 @@ import {
   isValidDateInput,
   weekdayFromDate,
 } from "../../utils/scheduleSlots";
+import { ensureBusinessHours } from "../../utils/ensureBusinessHours";
 
 interface ListAvailableSlotsRequest {
   user_id: string;
@@ -47,9 +48,18 @@ class ListAvailableSlotsService {
       throw new Error("Barbearia não encontrada");
     }
 
-    const hour = user.businessHours.find(
-      (item) => item.weekday === weekdayFromDate(date)
-    );
+    await ensureBusinessHours(user_id);
+
+    const hours =
+      user.businessHours.length > 0
+        ? user.businessHours
+        : await prismaClient.businessHour.findMany({
+            where: {
+              user_id,
+            },
+          });
+
+    const hour = hours.find((item) => item.weekday === weekdayFromDate(date));
 
     if (!hour || hour.closed || !hour.opens_at || !hour.closes_at) {
       return {

@@ -118,20 +118,56 @@ function getApiError(error: unknown, fallback: string) {
   return axiosError.response?.data?.error || fallback;
 }
 
+function normalizePublicSlots(data: unknown): {
+  closed: boolean;
+  slots: SlotItem[];
+} {
+  if (Array.isArray(data)) {
+    return {
+      closed: false,
+      slots: data.map((item) =>
+        typeof item === "string"
+          ? { at: item, status: "available" as const }
+          : {
+              at: String(item?.at || ""),
+              status: item?.status || "available",
+            }
+      ),
+    };
+  }
+
+  const payload = data as { closed?: boolean; slots?: unknown[] } | null;
+  const rawSlots = Array.isArray(payload?.slots) ? payload.slots : [];
+
+  return {
+    closed: Boolean(payload?.closed),
+    slots: rawSlots.map((item) =>
+      typeof item === "string"
+        ? { at: item, status: "available" as const }
+        : {
+            at: String((item as SlotItem)?.at || ""),
+            status: (item as SlotItem)?.status || "available",
+          }
+    ),
+  };
+}
+
 export default function AgendarShop({ shop }: AgendarShopProps) {
   const router = useRouter();
+  const [shopData, setShopData] = useState(shop);
   const [phone, setPhone] = useState("");
   const [customer, setCustomer] = useState("");
   const [knownCustomer, setKnownCustomer] = useState(false);
   const [mySchedules, setMySchedules] = useState<CustomerSchedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [haircutId, setHaircutId] = useState(shop.haircuts[0]?.id || "");
-  const closedWeekdays = shop.businessHours
+  const closedWeekdays = shopData.businessHours
     .filter((hour) => hour.closed)
     .map((hour) => hour.weekday);
   const [date, setDate] = useState(() => nextOpenDate(closedWeekdays));
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [dayClosed, setDayClosed] = useState(false);
+  const [slotError, setSlotError] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -143,6 +179,23 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   } | null>(null);
   const selectedSlotRef = useRef("");
   const editingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    async function loadShop() {
+      try {
+        const apiClient = setupAPIClient();
+        const response = await apiClient.get(`/public/shops/${shop.slug}`);
+        if (response.data) {
+          setShopData(response.data);
+          setHaircutId((current) => current || response.data.haircuts?.[0]?.id || "");
+        }
+      } catch {
+        setShopData(shop);
+      }
+    }
+
+    loadShop();
+  }, [shop]);
 
   useEffect(() => {
     selectedSlotRef.current = selectedSlot;
@@ -160,6 +213,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
 
       const keepSlot = selectedSlotRef.current;
       setLoadingSlots(true);
+      setSlotError("");
 
       try {
         const apiClient = setupAPIClient();
@@ -169,12 +223,10 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
             ignore_schedule_id: editingIdRef.current || undefined,
           },
         });
-        const nextSlots: SlotItem[] = Array.isArray(response.data?.slots)
-          ? response.data.slots
-          : [];
-        setDayClosed(Boolean(response.data?.closed));
-        setSlots(nextSlots);
-        const stillThere = nextSlots.some(
+        const parsed = normalizePublicSlots(response.data);
+        setDayClosed(parsed.closed);
+        setSlots(parsed.slots.filter((slot) => slot.at));
+        const stillThere = parsed.slots.some(
           (slot) => keepSlot && slotTime(slot.at) === slotTime(keepSlot)
         );
         setSelectedSlot(stillThere ? keepSlot : "");
@@ -182,6 +234,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
         setDayClosed(false);
         setSlots([]);
         setSelectedSlot("");
+        setSlotError("Não foi possível carregar os horários. Tente outro dia.");
       } finally {
         setLoadingSlots(false);
       }
@@ -227,7 +280,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
   function resetBookingForm() {
     setEditingId(null);
     setSelectedSlot("");
-    setHaircutId(shop.haircuts[0]?.id || "");
+    setHaircutId(shopData.haircuts[0]?.id || "");
     setDate(nextOpenDate(closedWeekdays));
   }
 
@@ -379,9 +432,9 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
             {shop.endereco || "Endereço não informado"}
           </Text>
 
-          {shop.haircuts.length === 0 ? (
+          {shopData.haircuts.length === 0 ? (
             <Text color="gray.400">
-              Esta barbearia ainda não cadastrou cortes ativos.
+              Esta barbearia ainda não cadastrou cortes para agendar.
             </Text>
           ) : (
             <Flex
@@ -506,7 +559,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 value={haircutId}
                 onChange={(e) => setHaircutId(e.target.value)}
               >
-                {shop.haircuts.map((item) => (
+                {shopData.haircuts.map((item) => (
                   <option
                     key={item.id}
                     value={item.id}
@@ -538,7 +591,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 Horários
               </Text>
               <Text w="85%" mb={2} color="gray.400" fontSize="sm">
-                Intervalo de {shop.slot_interval_minutes} min, no horário de
+                Intervalo de {shopData.slot_interval_minutes} min, no horário de
                 Brasília. Um horário ocupado não pode ser usado por outro
                 cliente nem por outro tipo de corte.
               </Text>
@@ -567,12 +620,28 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 {loadingSlots && (
                   <Text color="gray.400">Carregando horários...</Text>
                 )}
-                {!loadingSlots && dayClosed && (
-                  <Text color="gray.400">A barbearia não abre neste dia.</Text>
+                {!loadingSlots && slotError && (
+                  <Text color="red.300">{slotError}</Text>
                 )}
-                {!loadingSlots && !dayClosed && slots.length === 0 && (
+                {!loadingSlots && !slotError && dayClosed && (
                   <Text color="gray.400">
-                    Nenhum horário neste dia.
+                    A barbearia não abre neste dia. Escolha outro no calendário.
+                  </Text>
+                )}
+                {!loadingSlots &&
+                  !slotError &&
+                  !dayClosed &&
+                  slots.length === 0 && (
+                  <Text color="gray.400">
+                    Nenhum horário neste dia. Escolha outra data.
+                  </Text>
+                )}
+                {!loadingSlots &&
+                  slots.some((slot) => slot.status === "available") === false &&
+                  slots.length > 0 && (
+                  <Text color="orange.300" w="100%">
+                    Não há horário livre neste dia. Toque em outro dia no
+                    calendário.
                   </Text>
                 )}
                 {slots.map((slot) => {
@@ -615,11 +684,19 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
                 })}
               </Flex>
 
+              <Text w="85%" mb={3} color="gray.400" fontSize="sm">
+                {selectedSlot
+                  ? `Horário escolhido: ${formatSlot(selectedSlot)}`
+                  : "Toque em um horário livre e depois em Confirmar agendamento."}
+              </Text>
+
               <Button
                 w="85%"
                 size="lg"
                 color="gray.900"
                 bg="button.cta"
+                position="sticky"
+                bottom={4}
                 _hover={{ bg: "#FFb13e" }}
                 isLoading={saving}
                 onClick={handleSubmit}
@@ -633,7 +710,7 @@ export default function AgendarShop({ shop }: AgendarShopProps) {
             <Text mb={2} fontWeight="bold">
               Funcionamento
             </Text>
-            {shop.businessHours.map((hour) => (
+            {shopData.businessHours.map((hour) => (
               <Text key={hour.weekday} color="gray.400" fontSize="sm">
                 {WEEKDAYS[hour.weekday]}:{" "}
                 {hour.closed

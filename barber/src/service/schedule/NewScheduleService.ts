@@ -50,7 +50,6 @@ class NewScheduleService {
       where: {
         id: haircut_id,
         user_id,
-        status: true,
       },
     });
 

@@ -60,7 +60,6 @@ class UpdatePublicScheduleService {
       where: {
         id: haircut_id,
         user_id: shop.id,
-        status: true,
       },
     });
 
