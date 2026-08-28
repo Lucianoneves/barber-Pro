@@ -15,8 +15,15 @@ interface HaircutProps {
   status: boolean;
 }
 
+interface CustomerItem {
+  id: string;
+  name: string;
+  phone: string;
+}
+
 interface NewProps {
   haircuts: HaircutProps[];
+  customers: CustomerItem[];
 }
 
 function todayInput() {
@@ -32,7 +39,70 @@ function getApiError(error: unknown, fallback: string) {
   return axiosError.response?.data?.error || fallback;
 }
 
-export default function New({ haircuts }: NewProps) {
+function formatPhone(phone: string) {
+  if (phone.length === 11) {
+    return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+
+  if (phone.length === 10) {
+    return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+
+  return phone;
+}
+
+function normalizeSearch(value: string) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function filterCustomers(
+  customers: CustomerItem[],
+  { name, phone }: { name?: string; phone?: string }
+) {
+  if (name) {
+    const query = normalizeSearch(name);
+
+    if (!query) {
+      return [];
+    }
+
+    return customers
+      .filter((item) => normalizeSearch(item.name).includes(query))
+      .slice(0, 10);
+  }
+
+  if (phone) {
+    const query = phone.replace(/\D/g, "");
+
+    if (!query) {
+      return [];
+    }
+
+    return customers
+      .filter((item) => item.phone.includes(query))
+      .slice(0, 10);
+  }
+
+  return [];
+}
+
+function alreadySelected(
+  matches: CustomerItem[],
+  customer: string,
+  phone: string
+) {
+  return (
+    matches.length === 1 &&
+    matches[0].name === customer &&
+    matches[0].phone === phone
+  );
+}
+
+export default function New({ haircuts, customers }: NewProps) {
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [haircutSelected, setHaircutSelected] = useState(haircuts[0]?.id || "");
@@ -41,6 +111,13 @@ export default function New({ haircuts }: NewProps) {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const router = useRouter();
+
+  const nameMatches = filterCustomers(customers, { name: customer });
+  const phoneMatches = filterCustomers(customers, { phone });
+  const showNameSuggestions =
+    nameMatches.length > 0 && !alreadySelected(nameMatches, customer, phone);
+  const showPhoneSuggestions =
+    phoneMatches.length > 0 && !alreadySelected(phoneMatches, customer, phone);
 
   useEffect(() => {
     async function loadSlots() {
@@ -69,6 +146,11 @@ export default function New({ haircuts }: NewProps) {
 
   function handleChangeSelect(id: string) {
     setHaircutSelected(id);
+  }
+
+  function pickCustomer(item: CustomerItem) {
+    setCustomer(item.name);
+    setPhone(item.phone);
   }
 
   async function handleRegister() {
@@ -118,39 +200,107 @@ export default function New({ haircuts }: NewProps) {
             justify="center"
             bg="barber.400"
           >
-            <Input
-              placeholder="Nome do Cliente"
-              w="85%"
-              mb={3}
-              size="lg"
-              type="text"
-              bg="barber.900"
-              color="white"
-              borderColor="gray.700"
-              _placeholder={{ color: "gray.400" }}
-              value={customer}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setCustomer(e.target.value)
-              }
-            />
+            <Text w="85%" mb={3} color="gray.400" fontSize="sm">
+              Ao digitar o nome ou o telefone, aparecem os clientes cadastrados
+              nesta casa. Exemplo: Carlos mostra todos os Carlos.
+            </Text>
+            <Flex w="85%" mb={3} direction="column">
+              <Input
+                placeholder="Nome do Cliente"
+                w="100%"
+                size="lg"
+                type="text"
+                bg="barber.900"
+                color="white"
+                borderColor="gray.700"
+                _placeholder={{ color: "gray.400" }}
+                value={customer}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setCustomer(e.target.value)
+                }
+              />
+              {showNameSuggestions && (
+                <Flex
+                  mt={1}
+                  direction="column"
+                  bg="barber.900"
+                  borderWidth={1}
+                  borderColor="gray.700"
+                  rounded={6}
+                  overflow="hidden"
+                >
+                  {nameMatches.map((item) => (
+                    <Button
+                      key={item.id}
+                      variant="ghost"
+                      justifyContent="space-between"
+                      color="white"
+                      rounded={0}
+                      h="auto"
+                      py={3}
+                      px={4}
+                      _hover={{ bg: "barber.400" }}
+                      onClick={() => pickCustomer(item)}
+                    >
+                      <Text>{item.name}</Text>
+                      <Text color="gray.400" fontWeight="normal" ml={3}>
+                        {formatPhone(item.phone)}
+                      </Text>
+                    </Button>
+                  ))}
+                </Flex>
+              )}
+            </Flex>
 
-            <Input
-              placeholder="Telefone do cliente"
-              w="85%"
-              mb={3}
-              size="lg"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              bg="barber.900"
-              color="white"
-              borderColor="gray.700"
-              _placeholder={{ color: "gray.400" }}
-              value={phone}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setPhone(e.target.value)
-              }
-            />
+            <Flex w="85%" mb={3} direction="column">
+              <Input
+                placeholder="Telefone do cliente"
+                w="100%"
+                size="lg"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                bg="barber.900"
+                color="white"
+                borderColor="gray.700"
+                _placeholder={{ color: "gray.400" }}
+                value={phone}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setPhone(e.target.value)
+                }
+              />
+              {showPhoneSuggestions && (
+                <Flex
+                  mt={1}
+                  direction="column"
+                  bg="barber.900"
+                  borderWidth={1}
+                  borderColor="gray.700"
+                  rounded={6}
+                  overflow="hidden"
+                >
+                  {phoneMatches.map((item) => (
+                    <Button
+                      key={item.id}
+                      variant="ghost"
+                      justifyContent="space-between"
+                      color="white"
+                      rounded={0}
+                      h="auto"
+                      py={3}
+                      px={4}
+                      _hover={{ bg: "barber.400" }}
+                      onClick={() => pickCustomer(item)}
+                    >
+                      <Text>{item.name}</Text>
+                      <Text color="gray.400" fontWeight="normal" ml={3}>
+                        {formatPhone(item.phone)}
+                      </Text>
+                    </Button>
+                  ))}
+                </Flex>
+              )}
+            </Flex>
 
             <Select
               bg="barber.900"
@@ -233,13 +383,13 @@ export default function New({ haircuts }: NewProps) {
 export const getServerSideProps = canSSRAuth(async (ctx) => {
   try {
     const apiClient = setupAPIClient(ctx);
-    const response = await apiClient.get("/haircuts", {
+    const haircutsResponse = await apiClient.get("/haircuts", {
       params: {
         status: true,
       },
     });
 
-    if (response.data === null) {
+    if (haircutsResponse.data === null) {
       return {
         redirect: {
           destination: "/dashboard",
@@ -248,9 +398,25 @@ export const getServerSideProps = canSSRAuth(async (ctx) => {
       };
     }
 
+    let customers: CustomerItem[] = [];
+
+    try {
+      const customersResponse = await apiClient.get("/customers");
+      customers = Array.isArray(customersResponse.data)
+        ? customersResponse.data.map((item: CustomerItem) => ({
+            id: item.id,
+            name: item.name,
+            phone: item.phone,
+          }))
+        : [];
+    } catch {
+      customers = [];
+    }
+
     return {
       props: {
-        haircuts: response.data,
+        haircuts: haircutsResponse.data,
+        customers,
       },
     };
   } catch {
